@@ -10,4 +10,4 @@ Read `docs/development.md` first: file layout and conventions.
 - Style through the CSS tokens in `src/style.css`; keep light and dark working and the layout usable at 400px.
 - Deploy: push to `main` → GitHub Actions → https://mangob.github.io/wang-mai/
 - The local dev server talks to the production Firestore. Never trigger reset or write test data without asking.
-- `artifact/wang-mai.html` is the old Claude Artifact version, kept for reference only.
+- The old Claude Artifact version was deleted; its source is in git history (commit f2e2091).

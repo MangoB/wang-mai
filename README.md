@@ -38,4 +38,4 @@ python3 -m http.server 5173
 - [`docs/data-model.md`](docs/data-model.md) — โครงสร้างข้อมูลใน Firestore
 - [`docs/roadmap.md`](docs/roadmap.md) — แผนต่อไป (ล็อกอิน, หลายทริป, สิทธิ์)
 
-`artifact/wang-mai.html` คือเวอร์ชันแรกที่รันเป็น Claude Artifact เก็บไว้อ้างอิง ไม่ได้ใช้แล้ว
+เวอร์ชันแรกเคยรันเป็น Claude Artifact (ลบแล้ว ดูโค้ดเดิมได้ใน git history ที่ commit `f2e2091`)

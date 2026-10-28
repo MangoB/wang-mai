@@ -1,0 +1,56 @@
+rules_version = '2';
+
+// ว่างไหม — anyone with the link can read and write, but every write must match
+// the data model in docs/data-model.md. Paste this into
+// Firebase console → Firestore Database → Rules, then Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isKey(k) {
+      // "p" + hex of the UTF-8 name (30 Thai chars = 90 bytes = 180 hex)
+      return k is string && k.matches('p[0-9a-f]{2,200}');
+    }
+
+    function isStrList(v, max) {
+      return v is list && v.size() <= max;
+    }
+
+    function validPerson(d) {
+      return d.keys().hasOnly(['name', 'dates', 'voteDates', 'votePlaces', 'updatedAt'])
+        && d.keys().hasAll(['name', 'dates', 'voteDates', 'votePlaces'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 30
+        && isStrList(d.dates, 1000)
+        && isStrList(d.voteDates, 200)
+        && isStrList(d.votePlaces, 200)
+        && (!('updatedAt' in d) || d.updatedAt is number);
+    }
+
+    function validPlace(d) {
+      return d.keys().hasOnly(['title', 'url', 'note', 'by', 'byKey', 'createdAt'])
+        && d.keys().hasAll(['title', 'url', 'by', 'byKey'])
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 80
+        && d.url is string && d.url.size() <= 500 && (d.url == '' || d.url.matches('https?://.+'))
+        && (!('note' in d) || (d.note is string && d.note.size() <= 300))
+        && d.by is string && d.by.size() > 0 && d.by.size() <= 30
+        && isKey(d.byKey)
+        && (!('createdAt' in d) || d.createdAt is number);
+    }
+
+    match /people/{key} {
+      allow read: if true;
+      allow create, update: if isKey(key) && validPerson(request.resource.data);
+      allow delete: if true; // needed by "เริ่มนัดรอบใหม่"
+    }
+
+    match /places/{id} {
+      allow read: if true;
+      allow create: if validPlace(request.resource.data);
+      allow update: if false;
+      allow delete: if true; // remove own place + reset
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

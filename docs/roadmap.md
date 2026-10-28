@@ -1,6 +1,6 @@
 # แผนต่อไป
 
-## ตอนนี้: Claude Artifact
+## เวอร์ชัน 1: Claude Artifact (เลิกใช้แล้ว)
 - [x] ปฏิทินวันว่าง + ลงหลายวัน
 - [x] สถานที่ + ลิงก์ Google Maps
 - [x] โหวตวันและสถานที่
@@ -12,11 +12,15 @@
 - ฝังแผนที่หรือรูปตัวอย่างจาก Google Maps ไม่ได้ (CSP ของ Artifact)
 - ไม่มีการยืนยันตัวตนจริง ใครพิมพ์ชื่อคนอื่นก็แก้แทนได้
 
-## ต่อไป: GitHub Pages + Firebase
-1. ตั้งโปรเจกต์ Vue 3 + Vite แยก component (Calendar, QuickFill, DateVotes, Places, ProfileGate, ResetModal)
-2. เปลี่ยนชั้นข้อมูลจาก `claude.use("db")` เป็น Firestore — API ใกล้กัน (`collection`, `doc`, `set`, `onSnapshot`)
-3. Firebase Auth (Google หรือ magic link)
-4. หลายทริป: หน้าแรกเป็นรายการทริป แต่ละทริปมีลิงก์เชิญ
-5. Permission: เจ้าของทริปลบ/ปิดทริป, สมาชิกแก้ข้อมูลของตัวเอง
-6. ฝังแผนที่ด้วย Google Maps Embed และ Cloud Function ดึงรูปตัวอย่าง (og:image) จากลิงก์
-7. Deploy ด้วย GitHub Actions ขึ้น GitHub Pages
+## เวอร์ชัน 2 (ตอนนี้): GitHub Pages + Firestore
+- [x] Vue 3 แบบไม่ต้อง build แยก component
+- [x] Firestore + security rules ตรวจรูปแบบข้อมูล
+- [x] ฝังแผนที่ Google Maps ในการ์ดสถานที่
+- [x] Deploy ด้วย GitHub Actions
+
+## ต่อไป
+1. Firebase Auth (Google หรือ magic link) แทนการพิมพ์ชื่อ
+2. หลายทริป: หน้าแรกเป็นรายการทริป แต่ละทริปมีลิงก์เชิญ (`trips/{tripId}/people`, `trips/{tripId}/places`)
+3. Permission: เจ้าของทริปลบหรือปิดทริป, สมาชิกแก้ได้เฉพาะข้อมูลตัวเอง, reset ได้เฉพาะเจ้าของ
+4. รูปตัวอย่างจากลิงก์ (og:image) ต้องมี Cloud Function ซึ่งต้องใช้แพ็กเกจ Blaze
+5. ถ้าโค้ดใหญ่ขึ้น ย้ายไป Vite + ไฟล์ `.vue`

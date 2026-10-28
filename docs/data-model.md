@@ -1,6 +1,6 @@
 # โครงสร้างข้อมูล
 
-ใช้ 2 collection แบน ๆ ใช้ได้ทั้งฐานข้อมูลของ Artifact และ Firestore โดยไม่ต้องเปลี่ยนรูปแบบ
+ใช้ 2 collection แบน ๆ ใน Firestore เงื่อนไขของทุก field บังคับอยู่ใน `firestore.rules`
 
 ## `people/{key}`
 

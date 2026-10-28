@@ -1,8 +1,13 @@
-# wang-mai — notes for Claude
+# wang-mai — notes for Claude / agents
+
+Read `docs/development.md` first: file layout and conventions.
 
 - UI copy is Thai. Keep it plain and short.
-- Current app: single file `artifact/wang-mai.html` (Vue 3.4.21 global build from cdnjs, in-file `text/x-template`).
-- Published as Claude Artifact https://claude.ai/artifact/F6cwxLBK2Lv9Sif7SShZdc with capabilities `{db:{}, user:{}}`. Republish to that URL; don't create a new artifact.
-- Data model: `docs/data-model.md`. Keep it Firestore-compatible; update the doc when fields change.
-- Artifact CSP: no external images/iframes/fetch; scripts only from cdnjs/jsdelivr/unpkg; fonts from Google Fonts.
-- Theme tokens on `:root` with dark-mode overrides; keep both themes working.
+- No build step: Vue 3 + Firebase loaded via import map in `index.html`. Components are JS objects with `template` strings in `src/components/`. Don't introduce `.vue` files or npm deps unless the project moves to Vite.
+- All Firestore access lives in `src/store.js`. Components call store functions only.
+- Changing stored fields means updating `src/store.js`, `firestore.rules`, and `docs/data-model.md` together. Rules are published separately (console or `firebase deploy --only firestore:rules`); tell the user when they need republishing.
+- `src/lib/*` is dependency-free; test changes there with node.
+- Style through the CSS tokens in `src/style.css`; keep light and dark working and the layout usable at 400px.
+- Deploy: push to `main` → GitHub Actions → https://mangob.github.io/wang-mai/
+- The local dev server talks to the production Firestore. Never trigger reset or write test data without asking.
+- `artifact/wang-mai.html` is the old Claude Artifact version, kept for reference only.

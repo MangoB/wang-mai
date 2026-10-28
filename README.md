@@ -2,13 +2,7 @@
 
 เว็บนัดเจอเพื่อน: ลงวันว่างบนปฏิทิน เสนอสถานที่ แล้วโหวตวันกับที่นัด
 
-## สถานะตอนนี้
-
-ตอนนี้รันเป็น **Claude Artifact** (หน้าเดียว Vue 3 + ฐานข้อมูลในตัวของ Artifact)
-โค้ดอยู่ที่ [`artifact/wang-mai.html`](artifact/wang-mai.html)
-
-> ไฟล์นี้ใช้ `window.claude.use("db")` ซึ่งมีเฉพาะตอนเปิดผ่าน claude.ai
-> ถ้าเปิดไฟล์ตรง ๆ หรือขึ้น GitHub Pages จะดูหน้าตาได้ แต่บันทึกข้อมูลไม่ได้
+**เว็บจริง:** https://mangob.github.io/wang-mai/
 
 ## ฟีเจอร์
 
@@ -16,18 +10,32 @@
 - **ปฏิทินวันว่าง** แตะวันเพื่อลงหรือเอาออก สีเข้มขึ้นตามจำนวนคนที่ว่าง
 - **ลงทีละหลายวัน** เลือกวันในสัปดาห์และช่วงวันที่ มีปุ่มลัด (เสาร์-อาทิตย์เดือนนี้, ศุกร์ทั้งเดือน, ทุกวัน 3 เดือน)
 - **โหวตวัน** เรียงตามโหวต แล้วตามจำนวนคนที่ว่าง
-- **สถานที่** ชื่อ, ลิงก์ Google Maps, โน้ต และโหวต
+- **สถานที่** ชื่อ, ลิงก์ Google Maps (ฝังแผนที่ให้), โน้ต และโหวต
 - **เริ่มนัดรอบใหม่** ลบทุกอย่าง ต้องยืนยันใน modal และพิมพ์ "ล้าง"
 
-## แก้ไขและเผยแพร่
+## เทคโนโลยี
 
-1. แก้ `artifact/wang-mai.html`
-2. เผยแพร่ทับ Artifact เดิม (URL เดิม) ผ่าน Claude โดยประกาศ capabilities `{ db: {}, user: {} }`
+- Vue 3 แบบ **ไม่ต้อง build** — โหลด Vue และ Firebase จาก CDN ผ่าน import map ใน `index.html`
+- Firebase Firestore เก็บข้อมูล (แพ็กเกจฟรี Spark)
+- GitHub Pages + GitHub Actions — push ขึ้น `main` แล้ว deploy เอง
 
-## โครงสร้างข้อมูล
+## รันในเครื่อง
 
-ดู [`docs/data-model.md`](docs/data-model.md) ออกแบบให้ตรงกับ Firestore เพื่อย้ายได้ง่าย
+ไม่ต้องติดตั้งอะไร ต้องเปิดผ่าน web server (เปิดไฟล์ตรง ๆ แบบ `file://` จะโหลด module ไม่ได้):
 
-## แผนต่อไป
+```bash
+python3 -m http.server 5173
+# แล้วเปิด http://localhost:5173
+```
 
-ดู [`docs/roadmap.md`](docs/roadmap.md) — ย้ายไป GitHub Pages + Firebase เมื่อต้องการล็อกอินจริง แยกหลายทริป และกำหนดสิทธิ์
+> ในเครื่องจะใช้ฐานข้อมูลจริงตัวเดียวกับเว็บจริง ระวังกด "เริ่มนัดรอบใหม่"
+
+รายละเอียดโครงสร้างโค้ดและวิธีเพิ่มฟีเจอร์: [`docs/development.md`](docs/development.md)
+
+## เอกสาร
+
+- [`docs/development.md`](docs/development.md) — โครงสร้างไฟล์, วิธีแก้, deploy, security rules
+- [`docs/data-model.md`](docs/data-model.md) — โครงสร้างข้อมูลใน Firestore
+- [`docs/roadmap.md`](docs/roadmap.md) — แผนต่อไป (ล็อกอิน, หลายทริป, สิทธิ์)
+
+`artifact/wang-mai.html` คือเวอร์ชันแรกที่รันเป็น Claude Artifact เก็บไว้อ้างอิง ไม่ได้ใช้แล้ว

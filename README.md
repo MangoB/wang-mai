@@ -36,6 +36,7 @@ python3 -m http.server 5173
 
 - [`docs/development.md`](docs/development.md) — โครงสร้างไฟล์, วิธีแก้, deploy, security rules
 - [`docs/data-model.md`](docs/data-model.md) — โครงสร้างข้อมูลใน Firestore
+- [`docs/security.md`](docs/security.md) — แผน security ทีละขั้น (API key, App Check, ลิงก์ลับ)
 - [`docs/roadmap.md`](docs/roadmap.md) — แผนต่อไป (ล็อกอิน, หลายทริป, สิทธิ์)
 
 เวอร์ชันแรกเคยรันเป็น Claude Artifact (ลบแล้ว ดูโค้ดเดิมได้ใน git history ที่ commit `f2e2091`)

@@ -1,6 +1,6 @@
 # wang-mai — notes for Claude / agents
 
-Read `docs/development.md` first: file layout and conventions.
+Read `docs/development.md` first: file layout and conventions. Security work follows `docs/security.md` step by step.
 
 - UI copy is Thai. Keep it plain and short.
 - No build step: Vue 3 + Firebase loaded via import map in `index.html`. Components are JS objects with `template` strings in `src/components/`. Don't introduce `.vue` files or npm deps unless the project moves to Vite.

@@ -19,6 +19,7 @@
 - [x] Deploy ด้วย GitHub Actions
 
 ## ต่อไป
+0. Security: ล็อก API key, App Check, ลิงก์ลับต่อรอบ — ดู `security.md`
 1. Firebase Auth (Google หรือ magic link) แทนการพิมพ์ชื่อ
 2. หลายทริป: หน้าแรกเป็นรายการทริป แต่ละทริปมีลิงก์เชิญ (`trips/{tripId}/people`, `trips/{tripId}/places`)
 3. Permission: เจ้าของทริปลบหรือปิดทริป, สมาชิกแก้ได้เฉพาะข้อมูลตัวเอง, reset ได้เฉพาะเจ้าของ

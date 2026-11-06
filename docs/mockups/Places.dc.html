@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>ว่างไหม: สถานที่</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600&family=Bai+Jamjuree:wght@600;700&display=swap">
+<style>
+body{margin:0}
+a{color:#1B2236}a:hover{color:#4F5874}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #1B2236;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F5F9; color: #1B2236; font-family: Anuphan, system-ui, sans-serif; font-size: 15px; display: flex; flex-direction: column; overflow: hidden">
+
+  <header style="padding: 20px 16px 12px; display: flex; flex-direction: column; gap: 12px">
+    <h1 style="margin: 0; font-family: 'Bai Jamjuree', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.15">ไปไหนกันดี</h1>
+    <div style="position: relative">
+      <label for="placeSearch" style="position: absolute; left: -9999px">ค้นชื่อร้านหรือแปะลิงก์ Google Maps</label>
+      <div style="display: flex; align-items: center; gap: 8px; background: #FFFFFF; border: 1.5px solid #1B2236; border-radius: 12px; padding: 0 12px; height: 48px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4F5874" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input id="placeSearch" value="หมูกระทะ ลาดพร้าว" style="flex: 1; min-width: 0; border: 0; outline: none; font: inherit; color: #1B2236; background: transparent">
+      </div>
+      <div style="margin-top: 6px; background: #FFFFFF; border-radius: 12px; border: 1px solid #DCE1EA; overflow: hidden">
+        <button type="button" style="width: 100%; text-align: left; padding: 10px 14px; border: 0; background: #F3F5F9; cursor: pointer; display: flex; flex-direction: column">
+          <span style="font-weight: 600">หมูกระทะริมคลอง</span>
+          <span style="font-size: 13px; color: #4F5874">ซอยลาดพร้าว 71, วังทองหลาง</span>
+        </button>
+        <button type="button" style="width: 100%; text-align: left; padding: 10px 14px; border: 0; border-top: 1px solid #DCE1EA; background: #FFFFFF; cursor: pointer; display: flex; flex-direction: column">
+          <span style="font-weight: 600">หมูกระทะลาดพร้าว 101</span>
+          <span style="font-size: 13px; color: #4F5874">ถนนลาดพร้าว, บางกะปิ</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div style="padding: 4px 12px 24px; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+    <sc-for list="{{places}}" as="p" hint-placeholder-count="2">
+      <article style="{{p.card}}">
+        <div style="{{p.photo}}" role="img" aria-label="{{p.photoLabel}}">
+          <span style="position: absolute; left: 10px; bottom: 10px; font-size: 12px; background: rgba(27,34,54,0.75); color: #FFFFFF; padding: 3px 8px; border-radius: 6px">รูปจาก Google Maps</span>
+          <sc-if value="{{p.lead}}" hint-placeholder-val="{{ true }}">
+            <span style="position: absolute; right: 10px; top: 10px; font-size: 13px; font-weight: 600; background: #1B2236; color: #FFFFFF; padding: 4px 10px; border-radius: 8px">โหวตนำ</span>
+          </sc-if>
+        </div>
+        <div style="padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px">
+          <div>
+            <h2 style="margin: 0; font-size: 17px; font-weight: 600">{{p.title}}</h2>
+            <p style="margin: 2px 0 0; font-size: 13px; color: #4F5874; display: flex; align-items: center; gap: 4px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+              {{p.address}}
+            </p>
+          </div>
+          <p style="margin: 0; font-size: 14px">{{p.note}}</p>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="display: flex; gap: 3px">
+                <sc-for list="{{p.voters}}" as="v" hint-placeholder-count="3">
+                  <span style="{{v}}"></span>
+                </sc-for>
+              </span>
+              <span style="font-size: 13px; color: #4F5874">{{p.voteText}}</span>
+            </div>
+            <div style="display: flex; gap: 8px">
+              <a href="https://maps.google.com" style="height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #DCE1EA; display: flex; align-items: center; font-size: 14px; text-decoration: none">แผนที่</a>
+              <button type="button" aria-pressed="{{p.myVote}}" style="{{p.voteBtn}}">{{p.voteLabel}}</button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var COLORS = ['#E5484D', '#3E63DD', '#30A46C', '#D6409F', '#F5B100', '#8E4EC6', '#0091D5', '#F76B15'];
+    function sq(i) { return 'width: 12px; height: 12px; border-radius: 3px; background: ' + COLORS[i]; }
+    var data = [
+      { title: 'หมูกระทะริมคลอง', address: 'ลาดพร้าว 71, วังทองหลาง', note: 'มีห้องแอร์ จองโต๊ะยาวได้', votes: [1, 2, 4, 6, 7], mine: true,
+        tint: 'linear-gradient(160deg, #6B3A22 0%, #C26A2E 45%, #F2B05E 100%)' },
+      { title: 'คาเฟ่ดาดฟ้าย่านอารีย์', address: 'อารีย์ซอย 1, พญาไท', note: 'ปิดสามทุ่ม เหมาะถ้านัดเย็นวันศุกร์', votes: [0, 3], mine: false,
+        tint: 'linear-gradient(160deg, #20364F 0%, #3F6E8C 55%, #A9C7D6 100%)' }
+    ];
+    return {
+      places: data.map(function (p, i) {
+        return {
+          title: p.title, address: p.address, note: p.note,
+          lead: i === 0,
+          card: 'background: #FFFFFF; border-radius: 18px; overflow: hidden; border: ' + (i === 0 ? '1.5px solid #1B2236' : '1px solid #DCE1EA'),
+          photo: 'position: relative; height: ' + (i === 0 ? 168 : 120) + 'px; background: ' + p.tint,
+          photoLabel: 'รูปร้าน ' + p.title,
+          voters: p.votes.map(sq),
+          voteText: p.votes.length + ' โหวต',
+          myVote: p.mine ? 'true' : 'false',
+          voteLabel: p.mine ? 'โหวตแล้ว' : 'โหวต',
+          voteBtn: 'height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; ' + (p.mine ? 'border: 0; background: #1B2236; color: #FFFFFF' : 'border: 1px solid #1B2236; background: #FFFFFF; color: #1B2236')
+        };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

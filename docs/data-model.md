@@ -35,3 +35,29 @@
 - แต่ละคนเขียนเฉพาะ `people/{key}` ของตัวเอง โดยเขียนทั้ง document (`set`) และรวมการกดถี่ ๆ ไว้รอบเดียว (debounce ~450ms) เขียนทีละครั้ง
 - นับโหวตฝั่ง client จาก `people` ทั้งหมด จึงไม่มี counter ที่ชนกัน
 - Reset = ลบทุก document ใน `people` และ `places`
+
+---
+
+# v2 (ร่าง — ยังไม่ใช้งาน)
+
+rules: `firestore.v2.rules` · ที่มา: `requirements.md`, `security.md`
+
+```
+admins/{uid}                              {}                                    ← console เท่านั้น
+users/{uid}                               name, color, roomCount, rooms[], createdAt   (member Google)
+joinCodes/{roomCode}                      roomId                                ← get ได้ list ไม่ได้
+rooms/{roomId}                            name, ownerUid, joinCode, createdAt
+  members/{uid}                           name, color, kind(member|guest), role(owner|cohost|participant),
+                                          status(active|blocked), pid, joinCode? | inviteCode?, joinedAt
+  invites/{guestCode}                     name, color, pid, claimedBy, createdBy, createdAt
+  meetups/{meetId}                        title, status(open|done), result{date, placeId, via}, drawCount{date, place}, createdBy, createdAt
+    avail/{pid}                           dates "YYYY-MM-DD,…", voteDates "…", votePlaces[], hidden, updatedAt
+    places/{placeId}                      title, mapsUrl, gPlaceId, address, note, pid, createdAt
+    draws/{drawId}                        kind(date|place), candidates[], result, n(1–3), pid, at   ← สร้างได้อย่างเดียว
+```
+
+- **pid** = ตัวตนของคนในห้องที่ไม่เปลี่ยนตามเครื่อง: member ใช้ uid, guest ใช้ `pid` ที่ gen ตอนสร้าง invite
+- **color** = เลข 0–11 ชี้ไปที่ชุดสีประจำตัวใน design system (`docs/design-system.md`) ไม่เก็บ hex
+- **hidden** อยู่ใน `avail` เพราะ "ซ่อน" มีผลเฉพาะนัดนั้น
+- **เตะออก** = ลบ `members/{uid}`; **บล็อก** = `status: blocked` (เก็บไว้กันกลับเข้า)
+- **สรุปนัด** = `meetups.status = done` + `result`; นัดที่ done อ่านได้ แก้ avail/places ไม่ได้

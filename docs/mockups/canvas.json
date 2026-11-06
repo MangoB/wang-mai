@@ -1,0 +1,19 @@
+{"v":3,"createdOnFiles":{"v":1,"at":"2026-11-06T19:46:31Z"},"title":"ว่างไหม v2","launch":{"view":"canvas"},"pages":[],
+"boards":{
+"Main.dc.html":{"x":0,"y":0,"w":390,"h":844,"title":"นัด: ปฏิทินสติกเกอร์","is_interactive":true},
+"Day.dc.html":{"x":470,"y":0,"w":390,"h":844,"title":"แตะวัน: ใครว่าง + โหวต"},
+"Places.dc.html":{"x":940,"y":0,"w":390,"h":844,"title":"สถานที่"},
+"Draw.dc.html":{"x":1410,"y":0,"w":390,"h":844,"title":"สุ่ม + หลักฐาน","is_interactive":true},
+"Summary.dc.html":{"x":1880,"y":0,"w":390,"h":844,"title":"สรุปนัด + ประวัติห้อง"},
+"Join.dc.html":{"x":0,"y":1084,"w":390,"h":844,"title":"เข้าห้อง"},
+"Members.dc.html":{"x":470,"y":1084,"w":390,"h":844,"title":"Owner: สมาชิก + เชิญ"},
+"Desktop.dc.html":{"x":940,"y":1084,"w":1330,"h":900,"title":"Desktop","expand":"fill"},
+"DesignSystem.dc.html":{"x":-1000,"y":0,"w":880,"h":1260,"title":"Design system"}
+},
+"order":["Main.dc.html","Day.dc.html","Places.dc.html","Draw.dc.html","Summary.dc.html","Join.dc.html","Members.dc.html","Desktop.dc.html","DesignSystem.dc.html"],
+"notes":{
+"row1":{"x":0,"y":-300,"text":"ในนัด (มือถือ)","kind":"title1","maxW":2270},
+"row2":{"x":0,"y":784,"text":"เข้าห้อง ดูแลห้อง และจอใหญ่","kind":"title1","maxW":2270},
+"concept":{"x":-1000,"y":-300,"text":"สีเป็นของคน ไม่ใช่ของแอป: UI ใช้หมึกน้ำเงินบนกระดาษเทาเย็น สีสดมีไว้ให้เพื่อนแต่ละคน วันที่ว่างครบแก๊ง = ช่องกลายเป็นแถบสีของทุกคน","w":880,"size":"m","fill":"blue"}
+},
+"designSystems":[]}

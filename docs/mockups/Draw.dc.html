@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>ว่างไหม: สุ่ม</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600&family=Bai+Jamjuree:wght@600;700&display=swap">
+<style>
+body{margin:0}
+a{color:#1B2236}a:hover{color:#4F5874}
+button{font:inherit;color:inherit}
+button:focus-visible,a:focus-visible{outline:2px solid #1B2236;outline-offset:2px}
+@media (prefers-reduced-motion: no-preference){.wm-pop{animation:wmpop .35s ease-out}}
+@keyframes wmpop{from{transform:scale(.92);opacity:.4}to{transform:none;opacity:1}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F5F9; color: #1B2236; font-family: Anuphan, system-ui, sans-serif; font-size: 15px; display: flex; flex-direction: column; overflow: hidden">
+
+  <header style="padding: 20px 16px 12px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <h1 style="margin: 0; font-family: 'Bai Jamjuree', sans-serif; font-weight: 700; font-size: 28px">สุ่มวัน</h1>
+      <span style="{{leftStyle}}">{{leftText}}</span>
+    </div>
+    <div role="tablist" aria-label="สุ่มอะไร" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); background: #E4E8F0; border-radius: 12px; padding: 4px">
+      <button type="button" role="tab" aria-selected="true" style="height: 40px; border: 0; border-radius: 9px; background: #FFFFFF; font-weight: 600; cursor: pointer">วัน</button>
+      <button type="button" role="tab" aria-selected="false" style="height: 40px; border: 0; border-radius: 9px; background: transparent; color: #4F5874; cursor: pointer">ที่นัด</button>
+    </div>
+  </header>
+
+  <section style="margin: 0 12px; background: #FFFFFF; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; justify-content: space-between; align-items: baseline">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 600">สุ่มจากวันไหนบ้าง</h2>
+      <span style="font-size: 13px; color: #4F5874">{{pickedText}}</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <sc-for list="{{options}}" as="o" hint-placeholder-count="5">
+        <button type="button" role="checkbox" aria-checked="{{o.checkedAttr}}" onClick="{{o.toggle}}" style="{{o.row}}">
+          <span style="{{o.box}}" aria-hidden="true">
+            <sc-if value="{{o.checked}}" hint-placeholder-val="{{ true }}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"><path d="M5 12l4 4 10-10"></path></svg>
+            </sc-if>
+          </span>
+          <span style="flex: 1; text-align: left; font-weight: 600">{{o.label}}</span>
+          <span style="{{o.badge}}">{{o.sub}}</span>
+        </button>
+      </sc-for>
+    </div>
+    <button type="button" onClick="{{draw}}" disabled="{{drawDisabled}}" style="{{drawBtn}}">{{drawLabel}}</button>
+  </section>
+
+  <sc-if value="{{hasResult}}" hint-placeholder-val="{{ true }}">
+    <section class="wm-pop" key="{{resultKey}}" style="margin: 12px 12px 0; background: #1B2236; color: #FFFFFF; border-radius: 18px; padding: 16px; display: flex; align-items: center; gap: 14px">
+      <span style="{{resultSwatch}}" aria-hidden="true"></span>
+      <div style="flex: 1; min-width: 0">
+        <div style="font-size: 13px; color: #C9D0E2">{{resultHead}}</div>
+        <div style="font-family: 'Bai Jamjuree', sans-serif; font-weight: 700; font-size: 24px">{{resultText}}</div>
+      </div>
+      <a href="Summary.dc.html" style="background: #FFFFFF; color: #1B2236; font-weight: 600; font-size: 14px; padding: 10px 12px; border-radius: 10px; text-decoration: none">ใช้ผลนี้สรุปนัด</a>
+    </section>
+  </sc-if>
+
+  <section style="margin: 14px 12px 0; display: flex; flex-direction: column; gap: 8px; padding-bottom: 20px">
+    <h2 style="margin: 0 4px; font-size: 15px; font-weight: 600">หลักฐานการสุ่ม</h2>
+    <p style="margin: 0 4px; font-size: 13px; color: #4F5874">บันทึกทุกครั้ง ลบหรือแก้ไม่ได้ แม้แต่เจ้าของห้อง</p>
+    <sc-for list="{{history}}" as="h" hint-placeholder-count="1">
+      <div style="background: #FFFFFF; border: 1px solid #DCE1EA; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px">
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: #4F5874">
+          <span>ครั้งที่ {{h.n}} โดย {{h.by}}</span><span>{{h.time}}</span>
+        </div>
+        <div style="font-size: 14px">จาก {{h.pool}}</div>
+        <div style="font-weight: 600">ได้ {{h.result}}</div>
+      </div>
+    </sc-for>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    this.state = {
+      picked: ['s14', 's21', 'u22'],
+      history: [{ n: 1, by: 'ทราย', time: '7 พ.ย. 02:41', pool: 'ส 14, ส 21, อา 22', result: 'ส 21' }],
+      result: 's21'
+    };
+  }
+  renderVals() {
+    var self = this;
+    var COLORS = ['#E5484D', '#3E63DD', '#30A46C', '#D6409F', '#F5B100', '#8E4EC6', '#0091D5', '#F76B15'];
+    var stripe = 'repeating-linear-gradient(135deg, ' + COLORS.map(function (c, i) { return c + ' ' + (i * 5) + 'px ' + ((i + 1) * 5) + 'px'; }).join(', ') + ')';
+    var OPTS = [
+      { id: 's14', label: 'เสาร์ 14 พ.ย.', sub: 'ครบ 8/8', full: true },
+      { id: 's21', label: 'เสาร์ 21 พ.ย.', sub: 'ครบ 8/8', full: true },
+      { id: 'u22', label: 'อาทิตย์ 22 พ.ย.', sub: 'ว่าง 6/8', full: false },
+      { id: 's28', label: 'เสาร์ 28 พ.ย.', sub: 'ว่าง 7/8', full: false },
+      { id: 'f13', label: 'ศุกร์ 13 พ.ย.', sub: 'ว่าง 4/8', full: false }
+    ];
+    var picked = this.state.picked;
+    var used = this.state.history.length;
+    var left = 3 - used;
+    function short(id) { var o = OPTS.filter(function (x) { return x.id === id; })[0]; return o.label.replace('เสาร์', 'ส').replace('อาทิตย์', 'อา').replace('ศุกร์', 'ศ').replace(' พ.ย.', ''); }
+
+    var options = OPTS.map(function (o) {
+      var on = picked.indexOf(o.id) >= 0;
+      return {
+        label: o.label, sub: o.sub, checked: on, checkedAttr: on ? 'true' : 'false',
+        row: 'display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 12px; border-radius: 12px; cursor: pointer; border: 1px solid ' + (on ? '#1B2236' : '#DCE1EA') + '; background: ' + (on ? '#F3F5F9' : '#FFFFFF'),
+        box: 'width: 22px; height: 22px; border-radius: 5px; display: grid; place-items: center; box-sizing: border-box; ' + (on ? 'background: #1B2236' : 'border: 2px solid #A3ABC2'),
+        badge: 'font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 6px; ' + (o.full ? 'background: ' + stripe + '; color: #FFFFFF; text-shadow: 0 1px 2px rgba(0,0,0,.5)' : 'background: #F3F5F9; color: #4F5874'),
+        toggle: function () {
+          var p = self.state.picked.slice();
+          var i = p.indexOf(o.id);
+          if (i >= 0) p.splice(i, 1); else p.push(o.id);
+          self.setState({ picked: p });
+        }
+      };
+    });
+
+    var canDraw = left > 0 && picked.length >= 2;
+    var res = this.state.result;
+    return {
+      options: options,
+      pickedText: 'เลือกไว้ ' + picked.length + ' วัน',
+      leftText: left > 0 ? 'เหลือ ' + left + ' ครั้ง' : 'ครบ 3 ครั้งแล้ว',
+      leftStyle: 'font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 8px; ' + (left > 0 ? 'background: #FFFFFF; border: 1px solid #DCE1EA' : 'background: #1B2236; color: #FFFFFF'),
+      drawDisabled: !canDraw,
+      drawLabel: left === 0 ? 'สุ่มครบแล้ว เลือกวันเองได้เลย' : (picked.length < 2 ? 'เลือกอย่างน้อย 2 วัน' : 'สุ่มเลย'),
+      drawBtn: 'height: 52px; border: 0; border-radius: 12px; font-weight: 600; font-size: 16px; cursor: ' + (canDraw ? 'pointer' : 'not-allowed') + '; background: ' + (canDraw ? '#1B2236' : '#DCE1EA') + '; color: ' + (canDraw ? '#FFFFFF' : '#4F5874'),
+      draw: function () {
+        if (!canDraw) return;
+        var p = self.state.picked;
+        var pick = p[Math.floor(Math.random() * p.length)];
+        var h = self.state.history.slice();
+        h.unshift({ n: h.length + 1, by: 'ทราย', time: '7 พ.ย. 02:4' + (h.length + 2), pool: p.map(short).join(', '), result: short(pick) });
+        self.setState({ history: h, result: pick });
+      },
+      hasResult: !!res,
+      resultKey: String(used),
+      resultHead: 'ผลครั้งที่ ' + used,
+      resultText: res ? OPTS.filter(function (x) { return x.id === res; })[0].label : '',
+      resultSwatch: 'width: 44px; height: 44px; border-radius: 10px; flex: none; background: ' + stripe,
+      history: this.state.history
+    };
+  }
+}
+</script>
+</body>
+</html>

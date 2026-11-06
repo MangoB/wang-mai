@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>ว่างไหม: design system</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600&family=Bai+Jamjuree:wght@600;700&display=swap">
+<style>
+body{margin:0}
+button{font:inherit;color:inherit}
+</style>
+</helmet>
+<div style="width: 880px; height: 1260px; box-sizing: border-box; background: #F3F5F9; color: #1B2236; font-family: Anuphan, system-ui, sans-serif; font-size: 15px; padding: 48px; display: flex; flex-direction: column; gap: 36px">
+
+  <header style="display: flex; flex-direction: column; gap: 8px">
+    <h1 style="margin: 0; font-family: 'Bai Jamjuree', sans-serif; font-weight: 700; font-size: 44px; line-height: 1.05">สีเป็นของคน ไม่ใช่ของแอป</h1>
+    <p style="margin: 0; color: #4F5874; max-width: 62ch">หน้าจอทั้งหมดใช้หมึกน้ำเงินบนกระดาษเทาเย็น สีสด 12 สีมีไว้ให้เพื่อนแต่ละคนเป็นสติกเกอร์ประจำตัว วันที่ว่างครบแก๊งจึงกลายเป็นแถบสีของทุกคนรวมกัน</p>
+  </header>
+
+  <section style="display: flex; flex-direction: column; gap: 14px">
+    <h2 style="margin: 0; font-family: 'Bai Jamjuree', sans-serif; font-weight: 600; font-size: 22px">สีประจำตัว</h2>
+    <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{persons}}" as="p" hint-placeholder-count="12">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="{{p.swatch}}">{{p.letter}}</span>
+          <span style="font-size: 14px; font-weight: 600">{{p.name}}</span>
+          <span style="font-size: 12px; color: #4F5874">{{p.hex}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 14px">
+    <h2 style="margin: 0; font-family: 'Bai Jamjuree', sans-serif; font-weight: 600; font-size: 22px">ช่องวันในปฏิทิน</h2>
+    <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{states}}" as="s" hint-placeholder-count="6">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="{{s.cell}}">
+            <span style="{{s.num}}">{{s.d}}</span>
+            <span style="display: grid; grid-template-columns: repeat(4, 10px); gap: 3px">
+              <sc-for list="{{s.stickers}}" as="k" hint-placeholder-count="3"><span style="{{k}}"></span></sc-for>
+            </span>
+          </div>
+          <span style="font-size: 14px; font-weight: 600">{{s.title}}</span>
+          <span style="font-size: 12px; color: #4F5874">{{s.desc}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px">
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <h2 style="margin: 0; font-family: 'Bai Jamjuree', sans-serif; font-weight: 600; font-size: 22px">สีหน้าจอ</h2>
+      <sc-for list="{{ui}}" as="u" hint-placeholder-count="5">
+        <div style="display: grid; grid-template-columns: 40px 40px minmax(0, 1fr); gap: 10px; align-items: center">
+          <span style="{{u.light}}"></span><span style="{{u.dark}}"></span>
+          <span style="font-size: 14px"><b>{{u.name}}</b> {{u.use}}</span>
+        </div>
+      </sc-for>
+      <p style="margin: 0; font-size: 13px; color: #4F5874">ช่องซ้ายธีมสว่าง ช่องขวาธีมมืด</p>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <h2 style="margin: 0; font-family: 'Bai Jamjuree', sans-serif; font-weight: 600; font-size: 22px">ตัวอักษร</h2>
+      <div style="font-family: 'Bai Jamjuree', sans-serif; font-weight: 700; font-size: 36px; line-height: 1.1">ข้าวเย็น 21</div>
+      <p style="margin: 0; font-size: 13px; color: #4F5874">Bai Jamjuree 700: หัวข้อ ตัวเลขวันที่ ทรงเหลี่ยมเข้ากับสติกเกอร์</p>
+      <div style="font-size: 15px; line-height: 1.6">แตะวันเพื่อลงวันที่คุณว่าง เพื่อนจะเห็นสติกเกอร์สีของคุณทันที</div>
+      <p style="margin: 0; font-size: 13px; color: #4F5874">Anuphan 400/600: เนื้อหา ปุ่ม ฟอร์ม ขนาด 13, 15, 17, 22, 28, 36 px</p>
+      <div style="display: flex; gap: 8px; margin-top: 6px">
+        <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #1B2236; color: #FFFFFF; font-weight: 600">สรุปนัด</button>
+        <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #DCE1EA; background: #FFFFFF; font-weight: 600">เปิดแผนที่</button>
+        <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #C8332F; background: #FFFFFF; color: #C8332F; font-weight: 600">บล็อก</button>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":880,"height":1260}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var P = [
+      ['มะเขือเทศ', '#E5484D', 0], ['ส้ม', '#F76B15', 0], ['มะม่วง', '#F5B100', 1], ['มะนาว', '#7DB800', 1],
+      ['ใบเตย', '#30A46C', 0], ['เขียวทะเล', '#12A594', 0], ['ฟ้า', '#0091D5', 0], ['คราม', '#3E63DD', 0],
+      ['ม่วง', '#8E4EC6', 0], ['ชมพู', '#D6409F', 0], ['ชาไทย', '#B0703F', 0], ['หมึกจีน', '#56607A', 0]
+    ];
+    var EIGHT = ['#E5484D', '#3E63DD', '#30A46C', '#D6409F', '#F5B100', '#8E4EC6', '#0091D5', '#F76B15'];
+    var stripe = 'repeating-linear-gradient(135deg, ' + EIGHT.map(function (c, i) { return c + ' ' + (i * 7) + 'px ' + ((i + 1) * 7) + 'px'; }).join(', ') + ')';
+    function sq(c, mine) { return 'width: 10px; height: 10px; border-radius: 2px; background: ' + c + (mine ? '; box-shadow: 0 0 0 1.5px #1B2236' : ''); }
+    var empty = 'width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1.5px dashed #1B2236';
+    var cellBase = 'height: 96px; border-radius: 8px; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; ';
+    var numBase = "font-family: 'Bai Jamjuree', sans-serif; font-size: 16px; font-weight: 600; color: #4F5874";
+    var states = [
+      { d: 10, title: 'ยังไม่มีใคร', desc: 'ช่องเปล่า', cell: cellBase + 'background: #FFFFFF; border: 1px solid #DCE1EA', num: numBase, stickers: [] },
+      { d: 13, title: 'มีคนว่าง', desc: 'สติกเกอร์สีของแต่ละคน', cell: cellBase + 'background: #F7F8FB; border: 1px solid #DCE1EA', num: numBase, stickers: [sq(EIGHT[0]), sq(EIGHT[3]), sq(EIGHT[4])] },
+      { d: 18, title: 'คุณว่าง', desc: 'กรอบหมึก เลขตัวหนา', cell: cellBase + 'background: #F7F8FB; border: 1px solid #DCE1EA', num: numBase.replace('#4F5874', '#1B2236').replace('600', '700'), stickers: [sq(EIGHT[1], true), sq(EIGHT[7])] },
+      { d: 28, title: 'ขาดอีก 1', desc: 'เส้นประ + ช่องว่างแทนคนที่ขาด', cell: cellBase + 'background: #FFFFFF; border: 1.5px dashed #1B2236', num: numBase, stickers: EIGHT.map(function (c, i) { return i === 6 ? empty : sq(c, i === 1); }) },
+      { d: 21, title: 'ว่างครบแก๊ง', desc: 'ทั้งช่องเป็นสีของทุกคน', cell: cellBase + 'background: ' + stripe, num: "font-family: 'Bai Jamjuree', sans-serif; font-size: 15px; font-weight: 700; background: #1B2236; color: #FFFFFF; border-radius: 5px; padding: 1px 7px; align-self: flex-start", stickers: [] },
+      { d: 3, title: 'ผ่านไปแล้ว', desc: 'จาง กดไม่ได้', cell: cellBase + 'background: #FFFFFF; border: 1px solid #DCE1EA; opacity: 0.4', num: numBase, stickers: [sq(EIGHT[2]), sq(EIGHT[5])] }
+    ];
+    var ui = [
+      ['กระดาษ', 'พื้นหลัง', '#F3F5F9', '#12151F'], ['แผ่น', 'ปฏิทิน, sheet', '#FFFFFF', '#1B2030'], ['หมึก', 'ตัวหนังสือ, ปุ่มหลัก', '#1B2236', '#E8ECF5'],
+      ['หมึกรอง', 'ข้อความรอง', '#4F5874', '#A3ABC2'], ['เส้น', 'ขอบ, ช่องว่าง', '#DCE1EA', '#2C3346'], ['อันตราย', 'ลบ, บล็อก', '#C8332F', '#FF7A70']
+    ];
+    return {
+      persons: P.map(function (p, i) {
+        return { name: p[0], hex: p[1], letter: String(i), swatch: 'height: 64px; border-radius: 6px; display: grid; place-items: center; font-family: \'Bai Jamjuree\', sans-serif; font-weight: 700; font-size: 18px; background: ' + p[1] + '; color: ' + (p[2] ? '#1B2236' : '#FFFFFF') };
+      }),
+      states: states,
+      ui: ui.map(function (u) {
+        return { name: u[0], use: u[1], light: 'width: 40px; height: 40px; border-radius: 8px; border: 1px solid #DCE1EA; background: ' + u[2], dark: 'width: 40px; height: 40px; border-radius: 8px; border: 1px solid #2C3346; background: ' + u[3] };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

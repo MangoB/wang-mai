@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>ว่างไหม: วันที่เลือก</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600&family=Bai+Jamjuree:wght@600;700&display=swap">
+<style>
+body{margin:0}
+a{color:#1B2236}a:hover{color:#4F5874}
+button{font:inherit;color:inherit}
+button:focus-visible{outline:2px solid #1B2236;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #8A90A3; color: #1B2236; font-family: Anuphan, system-ui, sans-serif; font-size: 15px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden">
+
+  <section role="dialog" aria-labelledby="dayTitle" style="background: #FFFFFF; border-radius: 22px 22px 0 0; padding: 10px 20px 28px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 -8px 30px rgba(27,34,54,0.25)">
+    <span style="align-self: center; width: 40px; height: 4px; border-radius: 2px; background: #DCE1EA" aria-hidden="true"></span>
+
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+      <div>
+        <h2 id="dayTitle" style="margin: 0; font-family: 'Bai Jamjuree', sans-serif; font-weight: 700; font-size: 26px; line-height: 1.15">อาทิตย์ 22 พ.ย.</h2>
+        <p style="margin: 4px 0 0; color: #4F5874">ว่าง 6 จาก 8 คน</p>
+      </div>
+      <a href="Main.dc.html" aria-label="ปิด" style="width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: #F3F5F9; color: #1B2236">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </a>
+    </div>
+
+    <label style="display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: #F3F5F9; cursor: pointer">
+      <span style="width: 22px; height: 22px; border-radius: 4px; background: #3E63DD; box-shadow: 0 0 0 2px #F3F5F9, 0 0 0 3.5px #1B2236; display: grid; place-items: center; color: #FFFFFF; font-size: 11px; font-weight: 600" aria-hidden="true">ท</span>
+      <span style="flex: 1; font-weight: 600">ฉันว่างวันนี้</span>
+      <input type="checkbox" checked style="width: 22px; height: 22px; accent-color: #1B2236">
+    </label>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <h3 style="margin: 0; font-size: 15px; font-weight: 600">ว่าง</h3>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <sc-for list="{{free}}" as="p" hint-placeholder-count="6">
+          <span style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 10px; background: #F3F5F9; font-size: 14px">
+            <span style="{{p.chip}}">{{p.initial}}</span>{{p.name}}
+          </span>
+        </sc-for>
+      </div>
+      <h3 style="margin: 6px 0 0; font-size: 15px; font-weight: 600">ไม่ว่าง</h3>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <sc-for list="{{busy}}" as="p" hint-placeholder-count="2">
+          <span style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 10px; border: 1px dashed #A3ABC2; font-size: 14px; color: #4F5874">
+            <span style="{{p.chipOff}}">{{p.initial}}</span>{{p.name}}
+          </span>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="border-top: 1px solid #DCE1EA; padding-top: 16px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; align-items: center; justify-content: space-between">
+        <h3 style="margin: 0; font-size: 15px; font-weight: 600">โหวตวันนี้ 3 คน</h3>
+        <span style="display: flex; gap: 3px" aria-label="ทราย มอส เบียร์ โหวตแล้ว">
+          <span style="width: 14px; height: 14px; border-radius: 3px; background: #3E63DD"></span>
+          <span style="width: 14px; height: 14px; border-radius: 3px; background: #30A46C"></span>
+          <span style="width: 14px; height: 14px; border-radius: 3px; background: #F5B100"></span>
+        </span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+        <button type="button" aria-pressed="true" style="height: 48px; border-radius: 12px; border: 0; background: #1B2236; color: #FFFFFF; font-weight: 600; cursor: pointer">โหวตแล้ว</button>
+        <a href="Draw.dc.html" style="height: 48px; border-radius: 12px; border: 1px solid #DCE1EA; display: grid; place-items: center; text-decoration: none; font-weight: 600">ใส่ในรายการสุ่ม</a>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var COLORS = ['#E5484D', '#3E63DD', '#30A46C', '#D6409F', '#F5B100', '#8E4EC6', '#0091D5', '#F76B15'];
+    var NAMES = ['ณัฐ', 'ทราย', 'มอส', 'แนน', 'เบียร์', 'แพร', 'หมก', 'ใหญ่'];
+    var freeIdx = [1, 2, 4, 5, 6, 7];
+    function chip(i) {
+      return 'width: 22px; height: 22px; border-radius: 4px; display: grid; place-items: center; font-size: 11px; font-weight: 600; background: ' + COLORS[i] + '; color: ' + (i === 4 ? '#1B2236' : '#FFFFFF');
+    }
+    function person(i) {
+      return {
+        name: NAMES[i] + (i === 1 ? ' (คุณ)' : ''),
+        initial: NAMES[i].charAt(0),
+        chip: chip(i),
+        chipOff: 'width: 22px; height: 22px; border-radius: 4px; display: grid; place-items: center; font-size: 11px; font-weight: 600; box-sizing: border-box; border: 2px solid ' + COLORS[i] + '; color: ' + COLORS[i]
+      };
+    }
+    return {
+      free: freeIdx.map(person),
+      busy: [0, 3].map(person)
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>ว่างไหม: จอใหญ่ (ธีมมืด)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600&family=Bai+Jamjuree:wght@600;700&display=swap">
+<style>
+body{margin:0;background:#12151F}
+a{color:#E8ECF5}a:hover{color:#FFFFFF}
+button{font:inherit;color:inherit}
+button:focus-visible,a:focus-visible{outline:2px solid #E8ECF5;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #12151F; color: #E8ECF5; font-family: Anuphan, system-ui, sans-serif; font-size: 15px; padding: 28px 24px 40px; box-sizing: border-box">
+  <div style="max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+
+    <header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+      <div>
+        <p style="margin: 0; color: #A3ABC2; font-size: 14px">แก๊งมหาลัย</p>
+        <h1 style="margin: 2px 0 0; font-family: 'Bai Jamjuree', sans-serif; font-weight: 700; font-size: 36px; line-height: 1.1">ข้าวเย็นปลายปี</h1>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <a href="Draw.dc.html" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #2C3346; display: flex; align-items: center; text-decoration: none; font-weight: 600">สุ่ม</a>
+        <button type="button" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #E8ECF5; color: #12151F; font-weight: 600; cursor: pointer">สรุปนัด</button>
+      </div>
+    </header>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+      <section style="flex: 999 1 560px; min-width: 0; background: #1B2030; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+        <h2 style="margin: 0; font-family: 'Bai Jamjuree', sans-serif; font-weight: 600; font-size: 19px">พฤศจิกายน 2569</h2>
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px">
+          <sc-for list="{{weekdays}}" as="w" hint-placeholder-count="7">
+            <span style="text-align: center; font-size: 13px; font-weight: 600; color: #A3ABC2; padding-bottom: 4px">{{w}}</span>
+          </sc-for>
+          <sc-for list="{{cells}}" as="c" hint-placeholder-count="30">
+            <div style="{{c.style}}">
+              <span style="{{c.numStyle}}">{{c.num}}</span>
+              <span style="{{c.quilt}}">
+                <sc-for list="{{c.stickers}}" as="s" hint-placeholder-count="4">
+                  <span style="{{s.style}}">{{s.initial}}</span>
+                </sc-for>
+              </span>
+              <sc-if value="{{c.full}}" hint-placeholder-val="{{ false }}">
+                <span style="font-size: 12px; font-weight: 600; background: #12151F; color: #E8ECF5; padding: 1px 8px; border-radius: 6px; align-self: flex-start">ครบแก๊ง</span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <aside style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <section style="background: #1B2030; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 600">ใครอยู่ในนัดนี้</h2>
+          <ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+            <sc-for list="{{people}}" as="p" hint-placeholder-count="8">
+              <li style="display: flex; align-items: center; gap: 8px; font-size: 14px">
+                <span style="{{p.chip}}">{{p.initial}}</span>{{p.name}}
+              </li>
+            </sc-for>
+          </ul>
+        </section>
+        <section style="background: #1B2030; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 600">วันที่น่าไปที่สุด</h2>
+          <sc-for list="{{top}}" as="t" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 10px">
+              <span style="{{t.swatch}}" aria-hidden="true"></span>
+              <span style="flex: 1; font-weight: 600">{{t.label}}</span>
+              <span style="font-size: 13px; color: #A3ABC2">{{t.sub}}</span>
+            </div>
+          </sc-for>
+        </section>
+      </aside>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1330,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var COLORS = ['#E5484D', '#3E63DD', '#30A46C', '#D6409F', '#F5B100', '#8E4EC6', '#0091D5', '#F76B15'];
+    var NAMES = ['ณัฐ', 'ทราย', 'มอส', 'แนน', 'เบียร์', 'แพร', 'หมก', 'ใหญ่'];
+    var N = 8;
+    var av = {
+      7: [0,1,2,3,4,5,6], 8: [1,3], 9: [5], 11: [2,6], 12: [1], 13: [0,1,3,4], 14: [0,1,2,3,4,5,6,7], 15: [0,2,3,4,6],
+      16: [6], 18: [1,7], 20: [0,3,5], 21: [0,1,2,3,4,5,6,7], 22: [1,2,4,5,6,7], 24: [3], 26: [0,1], 27: [2,4,6],
+      28: [0,1,2,3,4,5,7], 29: [1,3,4], 1: [0,3], 2: [2,5], 4: [0,4], 6: [2,3,7]
+    };
+    var stripe = 'repeating-linear-gradient(135deg, ' + COLORS.map(function (c, i) { return c + ' ' + (i * 9) + 'px ' + ((i + 1) * 9) + 'px'; }).join(', ') + ')';
+    var cells = [];
+    for (var d = 1; d <= 30; d++) {
+      var who = av[d] || [];
+      var past = d < 7;
+      var full = who.length === N && !past;
+      var near = who.length === N - 1 && !past;
+      cells.push({
+        num: d, full: full,
+        style: 'height: 96px; border-radius: 10px; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; ' +
+          (full ? 'background: ' + stripe : 'background: #12151F; border: ' + (near ? '1.5px dashed #E8ECF5' : '1px solid #2C3346')) + (past ? '; opacity: 0.4' : ''),
+        numStyle: "font-family: 'Bai Jamjuree', sans-serif; font-weight: 700; font-size: 15px; " + (full ? 'background: #12151F; color: #E8ECF5; border-radius: 6px; padding: 0 8px; align-self: flex-start' : 'color: #A3ABC2'),
+        quilt: full ? 'display: none' : 'display: flex; flex-wrap: wrap; gap: 3px',
+        stickers: full ? [] : who.map(function (k) {
+          return { initial: NAMES[k].charAt(0), style: 'width: 18px; height: 18px; border-radius: 3px; display: grid; place-items: center; font-size: 10px; font-weight: 600; background: ' + COLORS[k] + '; color: ' + (k === 4 ? '#1B2236' : '#FFFFFF') };
+        })
+      });
+    }
+    return {
+      weekdays: ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์'],
+      cells: cells,
+      people: NAMES.map(function (n, i) {
+        return { name: n + (i === 1 ? ' (คุณ)' : ''), initial: n.charAt(0), chip: 'width: 24px; height: 24px; border-radius: 4px; display: grid; place-items: center; font-size: 11px; font-weight: 600; background: ' + COLORS[i] + '; color: ' + (i === 4 ? '#1B2236' : '#FFFFFF') };
+      }),
+      top: [
+        { label: 'เสาร์ 14 พ.ย.', sub: 'ครบ 8/8', swatch: 'width: 22px; height: 22px; border-radius: 5px; background: ' + stripe },
+        { label: 'เสาร์ 21 พ.ย.', sub: 'ครบ 8/8, โหวต 5', swatch: 'width: 22px; height: 22px; border-radius: 5px; background: ' + stripe },
+        { label: 'เสาร์ 28 พ.ย.', sub: 'ขาดหมก', swatch: 'width: 22px; height: 22px; border-radius: 5px; box-sizing: border-box; border: 1.5px dashed #E8ECF5' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

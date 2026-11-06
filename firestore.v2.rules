@@ -1,0 +1,244 @@
+rules_version = '2';
+
+// ว่างไหม v2 — DRAFT. Not published. Test with the Firebase Emulator before replacing firestore.rules.
+// Data model: docs/data-model.md (v2 section). Design: docs/security.md.
+//
+// Layers: App Check (enforced in console) → Auth (Google or anonymous guest) → room membership → role.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- identity ----------
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function isGoogle() { return signedIn() && request.auth.token.firebase.sign_in_provider == 'google.com'; }
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(uid())); }
+
+    // ---------- room membership ----------
+    function memberPath(roomId) { return /databases/$(database)/documents/rooms/$(roomId)/members/$(uid()); }
+    function member(roomId) { return get(memberPath(roomId)).data; }
+    function invite(roomId, code) { return get(/databases/$(database)/documents/rooms/$(roomId)/invites/$(code)).data; }
+
+    // A guest stays a member only while their invite is still claimed by this browser.
+    // Re-claiming the invite on a new device silently revokes the old one.
+    function isMember(roomId) {
+      return signedIn() && exists(memberPath(roomId))
+        && member(roomId).status != 'blocked'
+        && (member(roomId).kind == 'member'
+            || invite(roomId, member(roomId).inviteCode).claimedBy == uid());
+    }
+    function isHost(roomId) {   // owner or co-host
+      return isMember(roomId) && member(roomId).role in ['owner', 'cohost'];
+    }
+    function isOwner(roomId) {
+      return isMember(roomId) && member(roomId).role == 'owner';
+    }
+
+    // ---------- shapes ----------
+    function str(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+    // Up to 400 dates as "YYYY-MM-DD,YYYY-MM-DD,…" — a string so every date can be checked with one regex.
+    function dateList(v) {
+      return v is string && v.size() <= 4400
+        && (v == '' || v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}(,[0-9]{4}-[0-9]{2}-[0-9]{2})*$'));
+    }
+    function idList(v, max) { return v is list && v.size() <= max; }
+    function code(c, n) { return c is string && c.matches('^[A-HJ-NP-Z2-9]{' + string(n) + '}$'); } // no 0/O/1/I
+    function personColor(c) { return c is int && c >= 0 && c < 12; }
+
+    // ---------- admin ----------
+    match /admins/{id} {
+      allow read: if signedIn() && id == uid();
+      allow write: if false; // console only
+    }
+
+    // ---------- member accounts (Google only) ----------
+    match /users/{id} {
+      allow read: if signedIn() && id == uid();
+      allow create: if isGoogle() && id == uid()
+        && request.resource.data.keys().hasOnly(['name', 'color', 'roomCount', 'rooms', 'createdAt'])
+        && str(request.resource.data.name, 1, 30)
+        && personColor(request.resource.data.color)
+        && request.resource.data.roomCount == 0
+        && idList(request.resource.data.rooms, 50);
+      allow update: if isGoogle() && id == uid()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'color', 'roomCount', 'rooms'])
+        && str(request.resource.data.name, 1, 30)
+        && personColor(request.resource.data.color)
+        && idList(request.resource.data.rooms, 50)
+        // roomCount only moves by +1 together with creating a room (see rooms create), max 5
+        && (request.resource.data.roomCount == resource.data.roomCount
+            || (request.resource.data.roomCount == resource.data.roomCount + 1 && request.resource.data.roomCount <= 5));
+    }
+
+    // ---------- room codes ----------
+    match /joinCodes/{c} {
+      allow get: if signedIn();          // knowing the code is the secret; no list
+      allow list: if false;
+      allow create: if code(c, 6) && isHost(request.resource.data.roomId)
+        && request.resource.data.keys().hasOnly(['roomId']);
+      allow delete: if isHost(resource.data.roomId) || isAdmin();
+      allow update: if false;
+    }
+
+    // ---------- rooms ----------
+    match /rooms/{roomId} {
+      allow get: if isMember(roomId) || isAdmin();
+      allow list: if isAdmin();
+      // Created in one batch with: users/{uid}.roomCount +1, members/{uid} as owner, joinCodes/{code}.
+      allow create: if isGoogle()
+        && request.resource.data.keys().hasOnly(['name', 'ownerUid', 'joinCode', 'createdAt'])
+        && request.resource.data.ownerUid == uid()
+        && str(request.resource.data.name, 1, 40)
+        && code(request.resource.data.joinCode, 6)
+        && getAfter(/databases/$(database)/documents/users/$(uid())).data.roomCount
+             == get(/databases/$(database)/documents/users/$(uid())).data.roomCount + 1
+        && getAfter(/databases/$(database)/documents/joinCodes/$(request.resource.data.joinCode)).data.roomId == roomId;
+      allow update: if isHost(roomId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'joinCode'])
+        && str(request.resource.data.name, 1, 40)
+        && code(request.resource.data.joinCode, 6);
+      allow delete: if isOwner(roomId) || isAdmin();
+
+      // ----- members -----
+      match /members/{mid} {
+        allow read: if isMember(roomId) || isAdmin();
+
+        // Google member joins with the room code: must prove it by naming the code.
+        allow create: if isGoogle() && mid == uid()
+          && request.resource.data.keys().hasOnly(['name', 'color', 'kind', 'role', 'status', 'pid', 'joinCode', 'joinedAt'])
+          && request.resource.data.kind == 'member'
+          && request.resource.data.role in ['participant', 'owner']
+          && (request.resource.data.role == 'participant'
+              || getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.ownerUid == uid())
+          && request.resource.data.status == 'active'
+          && request.resource.data.pid == uid()
+          && str(request.resource.data.name, 1, 30) && personColor(request.resource.data.color)
+          && get(/databases/$(database)/documents/joinCodes/$(request.resource.data.joinCode)).data.roomId == roomId;
+
+        // Guest claims an invite: same batch sets invites/{code}.claimedBy = uid.
+        allow create: if signedIn() && mid == uid()
+          && request.resource.data.keys().hasOnly(['name', 'color', 'kind', 'role', 'status', 'pid', 'inviteCode', 'joinedAt'])
+          && request.resource.data.kind == 'guest'
+          && request.resource.data.role == 'participant'
+          && request.resource.data.status == 'active'
+          && getAfter(/databases/$(database)/documents/rooms/$(roomId)/invites/$(request.resource.data.inviteCode)).data.claimedBy == uid()
+          && request.resource.data.pid == invite(roomId, request.resource.data.inviteCode).pid
+          && request.resource.data.name == invite(roomId, request.resource.data.inviteCode).name
+          && request.resource.data.color == invite(roomId, request.resource.data.inviteCode).color;
+
+        // Self: change own name/color (members only — guests keep the name the host gave them).
+        allow update: if mid == uid() && isMember(roomId)
+          && member(roomId).kind == 'member'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'color'])
+          && str(request.resource.data.name, 1, 30) && personColor(request.resource.data.color);
+
+        // Host: block / unblock, promote / demote co-host (owner only), never touch the owner.
+        allow update: if isHost(roomId) && resource.data.role != 'owner'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'role'])
+          && request.resource.data.status in ['active', 'blocked']
+          && request.resource.data.role in ['participant', 'cohost']
+          && (request.resource.data.role == resource.data.role || isOwner(roomId));
+
+        // Leave (self) or kick (host). Blocked members are kept, not deleted, so they cannot rejoin.
+        allow delete: if (mid == uid() && resource.data.role != 'owner')
+          || (isHost(roomId) && resource.data.role != 'owner');
+      }
+
+      // ----- guest invites (path = guest code, the guest's secret) -----
+      match /invites/{c} {
+        allow get: if signedIn();                 // guest proves the code by reading it
+        allow list: if isHost(roomId);            // hosts see the codes to share them
+        allow create: if isHost(roomId) && code(c, 8)
+          && request.resource.data.keys().hasOnly(['name', 'color', 'pid', 'claimedBy', 'createdBy', 'createdAt'])
+          && str(request.resource.data.name, 1, 30) && personColor(request.resource.data.color)
+          && str(request.resource.data.pid, 20, 40)
+          && request.resource.data.claimedBy == null
+          && request.resource.data.createdBy == uid();
+        // Anyone holding the code claims it for their browser (new device = re-claim).
+        allow update: if signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedBy'])
+          && request.resource.data.claimedBy == uid();
+        allow delete: if isHost(roomId);          // revoke a guest
+      }
+
+      // ----- meetups -----
+      match /meetups/{meetId} {
+        function meetup() { return get(/databases/$(database)/documents/rooms/$(roomId)/meetups/$(meetId)).data; }
+        function open() { return meetup().status == 'open'; }
+
+        allow read: if isMember(roomId) || isAdmin();
+        allow create: if isHost(roomId)
+          && request.resource.data.keys().hasOnly(['title', 'status', 'result', 'drawCount', 'createdBy', 'createdAt'])
+          && str(request.resource.data.title, 1, 60)
+          && request.resource.data.status == 'open'
+          && request.resource.data.result == null
+          && request.resource.data.drawCount == {'date': 0, 'place': 0};
+        // Host: rename, conclude ("สรุปนัด"), reopen.
+        allow update: if isHost(roomId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'status', 'result', 'drawCount'])
+          && request.resource.data.status in ['open', 'done']
+          // drawCount only changes inside a draw batch, by exactly +1, max 3 per kind
+          && (request.resource.data.drawCount == resource.data.drawCount
+              || (request.resource.data.drawCount.date == resource.data.drawCount.date + 1
+                  && request.resource.data.drawCount.place == resource.data.drawCount.place
+                  && request.resource.data.drawCount.date <= 3)
+              || (request.resource.data.drawCount.place == resource.data.drawCount.place + 1
+                  && request.resource.data.drawCount.date == resource.data.drawCount.date
+                  && request.resource.data.drawCount.place <= 3));
+        allow delete: if isOwner(roomId);
+
+        // Availability + votes, one doc per person (pid survives a guest's device change).
+        match /avail/{pid} {
+          allow read: if isMember(roomId) || isAdmin();
+          allow create, update: if isMember(roomId) && member(roomId).pid == pid && open()
+            && request.resource.data.keys().hasOnly(['dates', 'voteDates', 'votePlaces', 'hidden', 'updatedAt'])
+            && dateList(request.resource.data.dates)
+            && dateList(request.resource.data.voteDates)
+            && idList(request.resource.data.votePlaces, 100)
+            && request.resource.data.hidden == (resource == null ? false : resource.data.hidden)
+            && request.resource.data.updatedAt == request.time;
+          // Host hides/unhides someone for this meetup.
+          allow update: if isHost(roomId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hidden'])
+            && request.resource.data.hidden is bool;
+          allow delete: if isHost(roomId);
+        }
+
+        match /places/{placeId} {
+          allow read: if isMember(roomId) || isAdmin();
+          allow create: if isMember(roomId) && open()
+            && request.resource.data.keys().hasOnly(['title', 'mapsUrl', 'gPlaceId', 'address', 'note', 'pid', 'createdAt'])
+            && str(request.resource.data.title, 1, 80)
+            && str(request.resource.data.mapsUrl, 0, 500)
+            && (request.resource.data.mapsUrl == '' || request.resource.data.mapsUrl.matches('^https://.+'))
+            && str(request.resource.data.gPlaceId, 0, 300)
+            && str(request.resource.data.address, 0, 200)
+            && str(request.resource.data.note, 0, 300)
+            && request.resource.data.pid == member(roomId).pid
+            && request.resource.data.createdAt == request.time;
+          allow update: if false;
+          allow delete: if isMember(roomId) && (resource.data.pid == member(roomId).pid || isHost(roomId));
+        }
+
+        // Random draws: append-only evidence. Same batch must bump meetup.drawCount.<kind> by 1 (max 3).
+        match /draws/{drawId} {
+          allow read: if isMember(roomId) || isAdmin();
+          allow create: if isHost(roomId) && open()
+            && request.resource.data.keys().hasOnly(['kind', 'candidates', 'result', 'n', 'pid', 'at'])
+            && request.resource.data.kind in ['date', 'place']
+            && request.resource.data.candidates is list
+            && request.resource.data.candidates.size() >= 2 && request.resource.data.candidates.size() <= 60
+            && request.resource.data.result in request.resource.data.candidates
+            && request.resource.data.pid == member(roomId).pid
+            && request.resource.data.at == request.time
+            && request.resource.data.n == getAfter(/databases/$(database)/documents/rooms/$(roomId)/meetups/$(meetId)).data.drawCount[request.resource.data.kind]
+            && request.resource.data.n == meetup().drawCount[request.resource.data.kind] + 1;
+          allow update, delete: if false;
+        }
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

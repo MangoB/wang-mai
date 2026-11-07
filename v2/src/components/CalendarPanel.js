@@ -110,8 +110,8 @@ export default {
     <button v-if="goldDates.length" type="button" class="gold-card ticket" style="cursor: pointer; text-align: left" @click="jumpTo(goldDates[0])">
       <svg class="crown" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path :d="CROWN"></path></svg>
       <span class="grow">
-        <b>ตั๋วทอง {{ goldDates.length }} ใบ</b><br>
-        <span class="small gold-ink">{{ goldDates.map(fmtShort).join(', ') }} ว่างครบ {{ total }} คน</span>
+        <b>ว่างครบแก๊ง {{ goldDates.length }} วัน</b><br>
+        <span class="small gold-ink">{{ goldDates.map(fmtShort).join(', ') }} ทุกคนว่าง ({{ total }} คน)</span>
       </span>
     </button>
 

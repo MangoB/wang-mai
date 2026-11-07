@@ -84,7 +84,7 @@ try {
       if (m !== new Date().getMonth() + 1) await page.getByRole('button', { name: 'เดือนก่อน' }).click();
       void y;
     }
-    await page.getByText(/ตั๋วทอง 2 ใบ/).waitFor({ timeout: 10000 });
+    await page.getByText(/ว่างครบแก๊ง 2 วัน/).waitFor({ timeout: 10000 });
     await page.waitForTimeout(1500);
     await env.withSecurityRulesDisabled(async (ctx) => {
       const s = await getDoc(doc(ctx.firestore(), 'rooms', ROOM, 'meetups', MEET, 'avail', 'g_sai000000000000000000'));

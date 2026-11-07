@@ -1,6 +1,6 @@
 import { ref, reactive, computed, watch } from 'vue';
 import {
-  room, openRoom, watchInvites, myMember, isHost, isOwner, people, session,
+  room, openRoom, watchInvites, myMember, isHost, isOwner, people, session, takenColors, setMyColor,
   createInvite, deleteInvite, setRole, blockMember, unblockMember, removeMember, rotateRoomCode, leaveRoom, deleteRoom, say, explain,
 } from '../store.js';
 import { COLORS, chipStyle, freeColor } from '../lib/palette.js';
@@ -26,7 +26,16 @@ export default {
 
     // ----- invites -----
     const inv = reactive({ name: '', color: 0, busy: false, lastCode: '' });
-    watch(() => people.value.length, () => { inv.color = freeColor(people.value.map((p) => p.color)); }, { immediate: true });
+    // Colours already in use: everyone in the room plus invites nobody has used yet.
+    const inUse = computed(() => [...people.value.map((p) => p.color), ...room.invites.filter((i) => !i.claimedBy).map((i) => i.color)]);
+    watch(() => inUse.value.join(','), () => { inv.color = freeColor(inUse.value); }, { immediate: true });
+
+    // ----- my colour in this room -----
+    async function chooseColor(i) {
+      if (!myMember.value || myMember.value.color === i) return;
+      try { await setMyColor(i); } catch (e) { say(explain(e), 'error'); }
+    }
+    const swatchLabel = (c, i, taken) => c.name + (taken.includes(i) ? ' (มีคนใช้แล้ว)' : '');
     async function submitInvite() {
       const n = inv.name.replace(/\s+/g, ' ').trim();
       if (!n) return;
@@ -55,7 +64,7 @@ export default {
 
     return {
       room, myMember, isHost, isOwner, people, blocked, openMenu, confirm, act, inv, submitInvite, link, copy, pending, rotate, leave, destroy,
-      COLORS, chipStyle, prettyCode, canManage, setRole, blockMember, unblockMember, removeMember, deleteInvite, session,
+      COLORS, chipStyle, prettyCode, canManage, takenColors, inUse, chooseColor, swatchLabel, setRole, blockMember, unblockMember, removeMember, deleteInvite, session,
     };
   },
   template: /* html */ `
@@ -89,6 +98,14 @@ export default {
         </ul>
         <p class="small muted" style="margin: 0" v-if="isHost">นำออก: คนที่เข้าด้วย Google กลับเข้ามาได้ด้วยรหัสห้อง ส่วน guest ต้องได้รหัสใหม่ บล็อก: กลับเข้าห้องนี้ไม่ได้อีก</p>
 
+        <div class="sheet" v-if="myMember && myMember.kind === 'member'">
+          <h2>สีของคุณในห้องนี้</h2>
+          <p class="small muted" style="margin: 0">สีที่มีจุดคือมีคนในห้องใช้แล้ว เปลี่ยนตรงนี้มีผลแค่ห้องนี้</p>
+          <div class="swatches">
+            <button v-for="(c, i) in COLORS" :key="i" type="button" class="swatch" :class="{ taken: takenColors.includes(i) }" :style="{ background: c.hex }" :aria-label="swatchLabel(c, i, takenColors)" :aria-pressed="myMember.color === i" @click="chooseColor(i)"></button>
+          </div>
+        </div>
+
         <div class="sheet" v-if="isHost && blocked.length">
           <h2>ถูกบล็อก</h2>
           <div v-for="m in blocked" :key="m.uid" class="row between">
@@ -104,7 +121,7 @@ export default {
           <p class="small muted" style="margin: 0">สร้างรหัสส่วนตัวให้ 1 คน แล้วส่งลิงก์ให้เขา เข้าได้ทันทีโดยไม่ต้องสมัคร</p>
           <div class="field"><label for="iname">ชื่อ</label><input id="iname" class="input" v-model="inv.name" maxlength="30" placeholder="เช่น ต้น"></div>
           <div class="swatches">
-            <button v-for="(c, i) in COLORS" :key="i" type="button" class="swatch" :style="{ background: c.hex }" :aria-label="c.name" :aria-pressed="inv.color === i" @click="inv.color = i"></button>
+            <button v-for="(c, i) in COLORS" :key="i" type="button" class="swatch" :class="{ taken: inUse.includes(i) }" :style="{ background: c.hex }" :aria-label="swatchLabel(c, i, inUse)" :aria-pressed="inv.color === i" @click="inv.color = i"></button>
           </div>
           <button class="btn primary" type="submit" :disabled="inv.busy || !inv.name.trim()">สร้างลิงก์เชิญ</button>
         </form>

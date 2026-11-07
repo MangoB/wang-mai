@@ -5,7 +5,7 @@ import {
   initializeTestEnvironment, assertSucceeds, assertFails,
 } from '@firebase/rules-unit-testing';
 import {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, increment, arrayUnion,
+  doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, increment, arrayUnion,
 } from 'firebase/firestore';
 
 let env;
@@ -122,6 +122,16 @@ test('a participant cannot make themselves owner', async () => {
   await assertFails(setDoc(doc(google('nat'), 'rooms', ROOM, 'members', 'nat'), {
     name: 'Nat', color: 0, kind: 'member', role: 'owner', status: 'active', pid: 'nat', joinCode: CODE, joinedAt: serverTimestamp(),
   }));
+});
+
+test('a new member sees who is in the room and changes only their own colour', async () => {
+  await createRoom(google('owner'), 'owner');
+  await joinAsMember(google('nat'), 'nat');
+  await assertSucceeds(getDocs(collection(google('nat'), 'rooms', ROOM, 'members')));
+  await assertSucceeds(updateDoc(doc(google('nat'), 'rooms', ROOM, 'members', 'nat'), { color: 4 }));
+  await assertFails(updateDoc(doc(google('nat'), 'rooms', ROOM, 'members', 'nat'), { color: 12 }));
+  await assertFails(updateDoc(doc(google('nat'), 'rooms', ROOM, 'members', 'owner'), { color: 4 }));
+  await assertFails(getDocs(collection(google('stranger'), 'rooms', ROOM, 'members')));
 });
 
 // ------------------------------------------------------------------ guests

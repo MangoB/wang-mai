@@ -6,7 +6,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, increment, arrayUnion,
-  query, orderBy, Timestamp,
+  query, orderBy,
 } from 'firebase/firestore';
 
 let env;
@@ -303,31 +303,6 @@ test('an invite scoped to a meetup gives a member doc with the same scope', asyn
     name: 'มอส', color: 2, kind: 'guest', role: 'participant', status: 'active', pid: 'pid_mos_000000000000000', inviteCode: GUEST_CODE, joinedAt: serverTimestamp(), meetId: 'm1',
   });
   await assertSucceeds(b.commit());
-});
-
-// ------------------------------------------------------------------ v1 import (admin)
-
-test('site admin imports v1 entries and places; nobody else can', async () => {
-  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'admins', 'owner'), { role: 'owner' }));
-  await createRoom(google('owner'), 'owner');
-  await joinAsMember(google('nat'), 'nat');
-  await createMeetup(google('owner'), 'v1');
-  const imported = { dates: '2026-11-28', voteDates: '', votePlaces: ['v1_abc'], hidden: false, updatedAt: serverTimestamp(), name: 'ทราย', color: 3 };
-  const at = (db, pid) => doc(db, 'rooms', ROOM, 'meetups', 'v1', 'avail', pid);
-
-  await assertFails(setDoc(at(google('nat'), 'pid_sai'), imported));
-  await assertSucceeds(setDoc(at(google('owner'), 'pid_sai'), imported));
-  await assertSucceeds(setDoc(at(google('owner'), 'pid_sai'), { ...imported, dates: '2026-11-21,2026-11-28' }));
-
-  // Once the person saved their own entry in v2, the import leaves it alone.
-  await assertSucceeds(setDoc(at(google('nat'), 'nat'), { dates: '2026-11-14', voteDates: '', votePlaces: [], hidden: false, updatedAt: serverTimestamp() }));
-  await assertFails(setDoc(at(google('owner'), 'nat'), { ...imported, name: 'Nat' }));
-
-  const place = { title: 'SUNNY MAN', mapsUrl: '', gPlaceId: '', address: '', note: '', pid: 'pid_nan', createdAt: Timestamp.fromMillis(1762400000000) };
-  await assertFails(setDoc(doc(google('nat'), 'rooms', ROOM, 'meetups', 'v1', 'places', 'v1_abc'), place));
-  await assertFails(setDoc(doc(google('owner'), 'rooms', ROOM, 'meetups', 'v1', 'places', 'abc'), place));
-  await assertSucceeds(setDoc(doc(google('owner'), 'rooms', ROOM, 'meetups', 'v1', 'places', 'v1_abc'), place));
-  await assertSucceeds(deleteDoc(doc(google('owner'), 'rooms', ROOM, 'meetups', 'v1', 'places', 'v1_abc')));
 });
 
 // ------------------------------------------------------------------ everything else

@@ -1,6 +1,6 @@
 import { ref, computed, watch } from 'vue';
 import {
-  session, isGoogle, createRoom, localRooms, home, loadHome, recentMeetups, pendingGang, setPendingGang,
+  session, isGoogle, createRoom, home, recentMeetups, pendingGang, setPendingGang,
   ROLE_LABEL, say, explain,
 } from '../store.js';
 import { chipStyle } from '../lib/palette.js';
@@ -14,17 +14,17 @@ const MAX_GANGS = 5;
 export default {
   name: 'HomeView',
   components: { ProfileForm, AskSheet },
-  setup() {
+  props: { startCreating: Boolean },
+  setup(props) {
     const needsProfile = computed(() => isGoogle.value && session.profileLoaded && !session.profile);
-    watch(() => [session.user && session.user.uid, session.profile && (session.profile.rooms || []).join(','), localRooms.value.length],
-      () => { if (session.user && !needsProfile.value) loadHome(); }, { immediate: true });
 
     // ----- ถามว่าว่างไหม? -----
     const asking = ref(false);
     const askable = computed(() => home.gangs.filter((g) => !g.guestOf).map((g) => ({ id: g.id, name: g.name })));
 
     // ----- สร้างแก๊งใหม่ -----
-    const creating = ref(false);
+    const creating = ref(props.startCreating);
+    watch(() => props.startCreating, (v) => { if (v) creating.value = true; });
     const gangName = ref('');
     const busy = ref(false);
     const left = computed(() => MAX_GANGS - ((session.profile && session.profile.roomCount) || 0));

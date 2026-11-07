@@ -3,7 +3,7 @@ import {
   room, meetup, openMeetup, canRun, isOpen, saveState, meetPeople, meetRoster, myMember, askedMeetup, personByPid,
   closeMeetup, reopenMeetup, deleteMeetup, setHidden, setMyGoing, renameMeetup, say, explain,
 } from '../store.js';
-import { fmtLong } from '../lib/dates.js';
+import { fmtShort, parseKey, MSHORT, WD_LONG } from '../lib/dates.js';
 import { chipStyle } from '../lib/palette.js';
 import CalendarPanel from '../components/CalendarPanel.js';
 import PlacesPanel from '../components/PlacesPanel.js';
@@ -28,7 +28,21 @@ export default {
     const result = computed(() => (meetup.data && meetup.data.result) || {});
     const deciding = reactive({ kind: '', preset: '' });
     function decide(kind, preset = '') { deciding.kind = kind; deciding.preset = preset; }
-    const dayLabel = computed(() => (result.value.date ? fmtLong(result.value.date) : ''));
+    const dayLabel = computed(() => {
+      if (!result.value.date) return '';
+      return WD_LONG[parseKey(result.value.date).getDay()] + ' ' + fmtShort(result.value.date);
+    });
+    const stub = computed(() => {
+      if (!result.value.date) return null;
+      const d = parseKey(result.value.date);
+      return { m: MSHORT[d.getMonth()], d: d.getDate(), wd: WD_LONG[d.getDay()] };
+    });
+
+    // ----- tab bar counts -----
+    const drawsLeft = computed(() => {
+      const c = (meetup.data && meetup.data.drawCount) || {};
+      return Math.max(0, 3 - (c.date || 0)) + Math.max(0, 3 - (c.place || 0));
+    });
 
     // ----- close / reopen / delete -----
     const confirmKey = ref('');
@@ -65,7 +79,7 @@ export default {
 
     return {
       room, meetup, canRun, isOpen, saveState, tab, sending, result, deciding, decide, dayLabel, confirmKey, close, reopen, remove,
-      meetPeople, meetRoster, myMember, hiddenPids, toggleHidden, notGoing, guests, creator, entered, chipStyle, rename,
+      meetPeople, meetRoster, myMember, hiddenPids, toggleHidden, notGoing, stub, drawsLeft, guests, creator, entered, chipStyle, rename,
     };
   },
   template: /* html */ `
@@ -94,22 +108,28 @@ export default {
         <button class="btn sm primary" @click="toggleHidden(myMember)">ไปด้วย</button>
       </div>
 
-      <!-- สรุปนัด: day and place, decided separately -->
-      <section class="gold-card stack" :class="{ ticket: !isOpen }" style="gap: 8px; padding: 12px 16px; align-items: stretch" aria-label="สรุปนัด">
-        <div class="row between small gold-ink"><b>{{ isOpen ? 'สรุปนัด' : 'นัดแล้ว' }}</b></div>
-        <div class="row between">
-          <span class="row" style="font-size: 16px"><span aria-hidden="true">📅</span>
-            <b v-if="result.date">{{ dayLabel }}</b><span v-else class="muted">ยังไม่ได้เลือกวัน</span></span>
-          <button v-if="canRun && isOpen" class="btn sm ghost" @click="decide('date')">{{ result.date ? 'แก้' : 'สรุปวัน' }}</button>
+      <!-- สรุปนัด: a quiet line while finding a day; a gold ticket once the meetup is done. -->
+      <section v-if="isOpen" class="summary-bar" aria-label="สรุปนัด">
+        <component :is="canRun ? 'button' : 'span'" class="sum-item" :type="canRun ? 'button' : null" @click="canRun && decide('date')">
+          <span class="ic" aria-hidden="true">📅</span>
+          <b v-if="result.date">{{ dayLabel }}</b><span v-else class="muted">ยังไม่ได้เลือกวัน</span>
+        </component>
+        <span class="sum-sep" aria-hidden="true"></span>
+        <component :is="canRun ? 'button' : 'span'" class="sum-item" :type="canRun ? 'button' : null" @click="canRun && decide('place')">
+          <span class="ic" aria-hidden="true">📍</span>
+          <b v-if="result.placeTitle">{{ result.placeTitle }}</b><span v-else class="muted">ยังไม่ได้เลือกสถานที่</span>
+        </component>
+        <span v-if="canRun" class="small muted" style="margin-left: auto">แตะเพื่อสรุป</span>
+      </section>
+      <section v-else class="done-ticket ticket" aria-label="นัดสำเร็จ">
+        <div class="stub">
+          <template v-if="stub"><span class="small" style="font-weight: 600">{{ stub.m }}</span><b>{{ stub.d }}</b><span class="small">{{ stub.wd }}</span></template>
+          <b v-else aria-label="ไม่ได้ระบุวัน">–</b>
         </div>
-        <div class="row between">
-          <span class="row" style="font-size: 16px; min-width: 0"><span aria-hidden="true">📍</span>
-            <template v-if="result.placeId || result.placeTitle">
-              <b>{{ result.placeTitle }}</b>
-              <a v-if="result.placeUrl" :href="result.placeUrl" target="_blank" rel="noopener noreferrer" class="small">แผนที่</a>
-            </template>
-            <span v-else class="muted">ยังไม่ได้เลือกสถานที่</span></span>
-          <button v-if="canRun && isOpen" class="btn sm ghost" @click="decide('place')">{{ result.placeId ? 'แก้' : 'สรุปสถานที่' }}</button>
+        <div class="body">
+          <span class="small gold-ink" style="font-weight: 600">นัดสำเร็จ 🎉</span>
+          <b style="font-size: 17px; overflow-wrap: anywhere">{{ result.placeTitle || 'ยังไม่ได้เลือกสถานที่' }}</b>
+          <span class="small muted">ไป {{ meetPeople.length }} คน<template v-if="result.placeUrl"> · <a :href="result.placeUrl" target="_blank" rel="noopener noreferrer">แผนที่</a></template></span>
         </div>
       </section>
 
@@ -137,13 +157,20 @@ export default {
         </div>
       </details>
 
-      <div class="tabs">
-        <div class="seg" role="tablist" aria-label="ส่วนของนัด">
-          <button type="button" role="tab" :aria-selected="tab === 'dates'" @click="tab = 'dates'">วันว่าง</button>
-          <button type="button" role="tab" :aria-selected="tab === 'places'" @click="tab = 'places'">สถานที่</button>
-          <button type="button" role="tab" :aria-selected="tab === 'draw'" @click="tab = 'draw'">สุ่ม</button>
-        </div>
-      </div>
+      <nav class="tabbar" role="tablist" aria-label="ส่วนของนัด">
+        <button type="button" role="tab" :aria-selected="tab === 'dates'" @click="tab = 'dates'">
+          <b><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M4 10h16M9 3v4M15 3v4"></path></svg>วันว่าง</b>
+          <small>ลงแล้ว {{ entered }}/{{ meetPeople.length }}</small>
+        </button>
+        <button type="button" role="tab" :aria-selected="tab === 'places'" @click="tab = 'places'">
+          <b><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11z"></path><circle cx="12" cy="10" r="2.2"></circle></svg>สถานที่</b>
+          <small>{{ meetup.places.length }} ที่</small>
+        </button>
+        <button type="button" role="tab" :aria-selected="tab === 'draw'" @click="tab = 'draw'">
+          <b><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect><circle cx="9" cy="9" r="1.2" fill="currentColor"></circle><circle cx="15" cy="15" r="1.2" fill="currentColor"></circle><circle cx="15" cy="9" r="1.2" fill="currentColor"></circle><circle cx="9" cy="15" r="1.2" fill="currentColor"></circle></svg>สุ่ม</b>
+          <small>{{ drawsLeft ? 'เหลือ ' + drawsLeft + ' ครั้ง' : 'สุ่มครบแล้ว' }}</small>
+        </button>
+      </nav>
 
       <CalendarPanel v-if="tab === 'dates'" />
       <PlacesPanel v-else-if="tab === 'places'" />

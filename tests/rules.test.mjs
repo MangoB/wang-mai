@@ -290,9 +290,10 @@ test('an invite scoped to a meetup gives a member doc with the same scope', asyn
   await createInvite(google('owner'), 'owner');
   await assertSucceeds(updateDoc(doc(google('owner'), 'rooms', ROOM, 'invites', GUEST_CODE), { meetId: 'm1' }));
   await assertFails(claimInvite(guest('mos'), 'mos')); // tries to join without the scope
-  const b = writeBatch(guest('mos'));
-  b.update(doc(guest('mos'), 'rooms', ROOM, 'invites', GUEST_CODE), { claimedBy: 'mos' });
-  b.set(doc(guest('mos'), 'rooms', ROOM, 'members', 'mos'), {
+  const db = guest('mos');
+  const b = writeBatch(db);
+  b.update(doc(db, 'rooms', ROOM, 'invites', GUEST_CODE), { claimedBy: 'mos' });
+  b.set(doc(db, 'rooms', ROOM, 'members', 'mos'), {
     name: 'มอส', color: 2, kind: 'guest', role: 'participant', status: 'active', pid: 'pid_mos_000000000000000', inviteCode: GUEST_CODE, joinedAt: serverTimestamp(), meetId: 'm1',
   });
   await assertSucceeds(b.commit());

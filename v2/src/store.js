@@ -1,13 +1,14 @@
 // v2 state and every Firestore/Auth call. Views import from here; they never touch Firebase directly.
 import { reactive, ref, computed, watch } from 'vue';
 import {
-  doc, collection, getDoc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, writeBatch,
+  doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, writeBatch,
   serverTimestamp, increment, arrayUnion, query, orderBy,
 } from 'firebase/firestore';
 import {
   onAuthStateChanged, signInAnonymously, signInWithPopup, GoogleAuthProvider, signOut as fbSignOut,
 } from 'firebase/auth';
 import { db, auth } from './firebase.js';
+import { pickColor } from './lib/palette.js';
 import { newRoomCode, newGuestCode, newPid, isRoomCode, isGuestCode } from './lib/codes.js';
 import { keyOfDate, startOfToday } from '../../src/lib/dates.js';
 
@@ -144,6 +145,13 @@ export async function joinWithRoomCode(code) {
     await setDoc(mine, {
       name: p.name, color: p.color, kind: 'member', role: 'participant', status: 'active', pid: uid, joinCode: code, joinedAt: serverTimestamp(),
     });
+    // The profile colour is only a default: if someone here already has it, take a free one for this room.
+    try {
+      const others = (await getDocs(collection(db, 'rooms', roomId, 'members'))).docs
+        .map((d) => d.data()).filter((m) => m.status === 'active' && m.pid !== uid);
+      const color = pickColor(p.color, others.map((m) => m.color));
+      if (color !== p.color) await updateDoc(mine, { color });
+    } catch { /* joined anyway; the colour can be changed on the members page */ }
   }
   await updateDoc(doc(db, 'users', uid), { rooms: arrayUnion(roomId) });
   return roomId;
@@ -274,6 +282,17 @@ export async function createInvite(name, color) {
 
 export async function deleteInvite(code) {
   await deleteDoc(doc(db, 'rooms', room.id, 'invites', code));
+}
+
+/** Colours other people in the current room already have. */
+export const takenColors = computed(() => {
+  const me = myMember.value;
+  return people.value.filter((p) => !me || p.pid !== me.pid).map((p) => p.color);
+});
+
+/** Change my colour in this room only (Google members; a guest's colour is set by the host). */
+export async function setMyColor(color) {
+  await updateDoc(doc(db, 'rooms', room.id, 'members', session.user.uid), { color });
 }
 
 export async function setRole(m, role) {

@@ -59,7 +59,7 @@ rooms/{roomId}                            name, ownerUid, joinCode, createdAt
 ```
 
 - **pid** = ตัวตนของคนในห้องที่ไม่เปลี่ยนตามเครื่อง: member ใช้ uid, guest ใช้ `pid` ที่ gen ตอนสร้าง invite
-- **color** = เลข 0–11 ชี้ไปที่ชุดสีประจำตัวใน design system (`docs/design-system.md`) ไม่เก็บ hex
+- **color** = เลข 0–11 ชี้ไปที่ชุดสีประจำตัวใน design system (`docs/design-system.md`) ไม่เก็บ hex สีใน `users` เป็นแค่ค่าเริ่มต้น สีจริงของแต่ละห้องอยู่ใน `members` ถ้าตอนเข้าห้องมีคนใช้สีนี้แล้ว แอปเลือกสีที่ว่างให้ (member เปลี่ยนเองได้ในหน้าสมาชิก, สีของ guest เจ้าของห้องเลือกตอนสร้าง invite)
 - **hidden** อยู่ใน `avail` เพราะ "ซ่อน" มีผลเฉพาะนัดนั้น
 - **เตะออก** = ลบ `members/{uid}`; **บล็อก** = `status: blocked` (เก็บไว้กันกลับเข้า)
 - **สรุปนัด** = `meetups.status = done` + `result`; นัดที่ done อ่านได้ แก้ avail/places ไม่ได้

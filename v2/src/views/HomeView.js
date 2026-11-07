@@ -62,7 +62,7 @@ export default {
     <!-- first visit as a Google member: pick a name and a colour -->
     <form v-if="isGoogle && session.profileLoaded && !session.profile" class="sheet outlined" @submit.prevent="submitProfile">
       <h1>ตั้งชื่อกับสีของคุณ</h1>
-      <p class="muted" style="margin: 0">เพื่อนจะเห็นชื่อนี้ และสติกเกอร์สีนี้บนปฏิทิน</p>
+      <p class="muted" style="margin: 0">เพื่อนจะเห็นชื่อนี้ และสติกเกอร์สีนี้บนปฏิทิน ถ้าในห้องมีคนใช้สีนี้แล้ว ระบบจะเลือกสีที่ว่างให้ และเปลี่ยนเองได้ที่หน้าสมาชิก</p>
       <div class="field"><label for="pname">ชื่อ</label><input id="pname" class="input" v-model="name" maxlength="30" autocomplete="nickname"></div>
       <div class="field">
         <span style="font-size: 14px; font-weight: 600">สีประจำตัว</span>

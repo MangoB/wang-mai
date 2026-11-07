@@ -154,4 +154,6 @@ textarea.input { padding: 10px 14px; min-height: 72px; resize: vertical; }
 .code-pill { font-family: var(--f-display); font-weight: 700; letter-spacing: .1em; }
 .swatches { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
 .swatch { height: 40px; border-radius: 8px; border: 0; cursor: pointer; }
+.swatch { position: relative; }
+.swatch.taken::after { content: ''; position: absolute; inset: 0; margin: auto; width: 10px; height: 10px; border-radius: 50%; background: var(--card); }
 .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); }

@@ -23,6 +23,11 @@ export function freeColor(used) {
   return used.length % COLORS.length;
 }
 
+/** Keep `preferred` unless someone in `used` already has it; then take the first free colour. */
+export function pickColor(preferred, used) {
+  return used.includes(preferred) ? freeColor(used) : preferred;
+}
+
 /** Inline style for a person chip. */
 export function chipStyle(i) {
   const c = colorOf(i);

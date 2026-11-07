@@ -1,6 +1,6 @@
 import { ref, reactive, computed, watch } from 'vue';
 import {
-  room, openRoom, watchInvites, myMember, isHost, isOwner, people, session, takenColors, setMyColor,
+  room, openRoom, watchInvites, myMember, isHost, isOwner, people, session, takenColors, setMyColor, setScope, setInviteScope,
   createInvite, deleteInvite, setRole, blockMember, unblockMember, removeMember, rotateRoomCode, leaveRoom, deleteRoom, say, explain,
 } from '../store.js';
 import { COLORS, chipStyle, freeColor } from '../lib/palette.js';
@@ -25,7 +25,7 @@ export default {
     }
 
     // ----- invites -----
-    const inv = reactive({ name: '', color: 0, busy: false, lastCode: '' });
+    const inv = reactive({ name: '', color: 0, meetId: '', busy: false, lastCode: '' });
     // Colours already in use: everyone in the room plus invites nobody has used yet.
     const inUse = computed(() => [...people.value.map((p) => p.color), ...room.invites.filter((i) => !i.claimedBy).map((i) => i.color)]);
     watch(() => inUse.value.join(','), () => { inv.color = freeColor(inUse.value); }, { immediate: true });
@@ -40,7 +40,7 @@ export default {
       const n = inv.name.replace(/\s+/g, ' ').trim();
       if (!n) return;
       inv.busy = true;
-      try { inv.lastCode = await createInvite(n.slice(0, 30), inv.color); inv.name = ''; }
+      try { inv.lastCode = await createInvite(n.slice(0, 30), inv.color, inv.meetId || null); inv.name = ''; }
       catch (e) { say(explain(e), 'error'); }
       inv.busy = false;
     }
@@ -60,11 +60,21 @@ export default {
       try { await deleteRoom(); location.hash = ''; say('ลบห้องแล้ว'); } catch (e) { say(explain(e), 'error'); }
     }
 
+    // ----- meetup-only guests -----
+    const meetTitle = (id) => (room.meetups.find((x) => x.id === id) || {}).title || 'นัดที่ลบแล้ว';
+    async function changeScope(m, meetId) {
+      try { await setScope(m, meetId); say(meetId ? m.name + ' เป็นแขกของ "' + meetTitle(meetId) + '"' : m.name + ' อยู่ในแก๊งแล้ว'); }
+      catch (e) { say(explain(e), 'error'); }
+    }
+    async function changeInviteScope(i, meetId) {
+      try { await setInviteScope(i.code, meetId); } catch (e) { say(explain(e), 'error'); }
+    }
+
     const canManage = (m) => isHost.value && m.role !== 'owner' && !(myMember.value && m.uid === myMember.value.uid);
 
     return {
       room, myMember, isHost, isOwner, people, blocked, openMenu, confirm, act, inv, submitInvite, link, copy, pending, rotate, leave, destroy,
-      COLORS, chipStyle, prettyCode, canManage, takenColors, inUse, chooseColor, swatchLabel, setRole, blockMember, unblockMember, removeMember, deleteInvite, session,
+      COLORS, chipStyle, prettyCode, canManage, meetTitle, changeScope, changeInviteScope, takenColors, inUse, chooseColor, swatchLabel, setRole, blockMember, unblockMember, removeMember, deleteInvite, session,
     };
   },
   template: /* html */ `
@@ -85,12 +95,20 @@ export default {
                 <span class="small muted">{{ m.kind === 'guest' ? 'รหัสส่วนตัว' : 'Google' }}</span></span>
               <span class="tag" v-if="m.role === 'owner'">เจ้าของ</span>
               <span class="tag" v-else-if="m.role === 'cohost'">co-host</span>
+              <span class="tag" v-if="m.meetId" :title="'แขกเฉพาะ ' + meetTitle(m.meetId)">แขก · {{ meetTitle(m.meetId) }}</span>
               <button v-if="canManage(m)" class="icon-btn" :aria-label="'จัดการ ' + m.name" :aria-expanded="openMenu === m.uid" @click="openMenu = openMenu === m.uid ? '' : m.uid">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>
               </button>
             </div>
             <div v-if="openMenu === m.uid" class="row" style="margin-top: 10px">
               <button v-if="isOwner && m.kind === 'member'" class="btn sm" @click="setRole(m, m.role === 'cohost' ? 'participant' : 'cohost')">{{ m.role === 'cohost' ? 'เลิก co-host' : 'ตั้ง co-host' }}</button>
+              <label v-if="m.role === 'participant' && room.meetups.length" class="row small" style="gap: 6px">
+                อยู่ใน
+                <select class="input" style="width: auto; min-height: 36px; padding: 0 8px" :value="m.meetId || ''" @change="changeScope(m, $event.target.value)">
+                  <option value="">แก๊ง (ทุกนัด)</option>
+                  <option v-for="x in room.meetups" :key="x.id" :value="x.id">แขกเฉพาะ {{ x.title }}</option>
+                </select>
+              </label>
               <button class="btn sm" @click="act('rm-' + m.uid, () => removeMember(m), 'นำออกแล้ว')">{{ confirm.key === 'rm-' + m.uid ? 'กดอีกครั้งเพื่อนำออก' : (m.kind === 'guest' ? 'ยกเลิกรหัสและนำออก' : 'นำออก') }}</button>
               <button class="btn sm danger" @click="act('bl-' + m.uid, () => blockMember(m), 'บล็อกแล้ว')">{{ confirm.key === 'bl-' + m.uid ? 'กดอีกครั้งเพื่อบล็อก' : 'บล็อก' }}</button>
             </div>
@@ -123,6 +141,13 @@ export default {
           <div class="swatches">
             <button v-for="(c, i) in COLORS" :key="i" type="button" class="swatch" :class="{ taken: inUse.includes(i) }" :style="{ background: c.hex }" :aria-label="swatchLabel(c, i, inUse)" :aria-pressed="inv.color === i" @click="inv.color = i"></button>
           </div>
+          <div class="field" v-if="room.meetups.length">
+            <label for="iscope">อยู่ใน</label>
+            <select id="iscope" class="input" v-model="inv.meetId">
+              <option value="">แก๊ง (ทุกนัด)</option>
+              <option v-for="x in room.meetups" :key="x.id" :value="x.id">แขกเฉพาะ {{ x.title }}</option>
+            </select>
+          </div>
           <button class="btn primary" type="submit" :disabled="inv.busy || !inv.name.trim()">สร้างลิงก์เชิญ</button>
         </form>
 
@@ -130,7 +155,11 @@ export default {
           <h2>ลิงก์เชิญที่ยังไม่มีคนใช้</h2>
           <div v-for="i in pending" :key="i.code" class="item" :class="{ lead: i.code === inv.lastCode }">
             <span class="chip" :style="chipStyle(i.color)">{{ i.name.charAt(0) }}</span>
-            <span class="grow"><b>{{ i.name }}</b><br><span class="small muted code-pill">{{ prettyCode(i.code) }}</span></span>
+            <span class="grow"><b>{{ i.name }}</b><br><span class="small muted code-pill">{{ prettyCode(i.code) }}</span>
+              <select v-if="room.meetups.length" class="input small" style="width: auto; min-height: 32px; padding: 0 6px; margin-top: 4px" :aria-label="'ขอบเขตของ ' + i.name" :value="i.meetId || ''" @change="changeInviteScope(i, $event.target.value)">
+                <option value="">แก๊ง</option>
+                <option v-for="x in room.meetups" :key="x.id" :value="x.id">แขก · {{ x.title }}</option>
+              </select></span>
             <button class="btn sm primary" @click="copy(link(i.code), 'คัดลอกลิงก์เชิญ ' + i.name + ' แล้ว')">คัดลอก</button>
             <button class="btn sm ghost" @click="act('inv-' + i.code, () => deleteInvite(i.code), 'ยกเลิกลิงก์แล้ว')">{{ confirm.key === 'inv-' + i.code ? 'ยืนยัน' : 'ยกเลิก' }}</button>
           </div>

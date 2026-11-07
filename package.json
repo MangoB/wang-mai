@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Test tooling only. The site itself has no build step and no npm dependencies.",
   "scripts": {
-    "test": "firebase emulators:exec --only firestore --project demo-wangmai \"node --test tests/rules.test.mjs\"",
+    "test": "firebase emulators:exec --only firestore --project demo-wangmai \"node --test tests/rules.test.mjs tests/lib.test.mjs\"",
     "test:e2e": "firebase emulators:exec --only firestore,auth --project wang-mai \"node tests/e2e.mjs\""
   },
   "devDependencies": {

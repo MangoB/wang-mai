@@ -43,7 +43,7 @@ export default {
           .map((p) => ({
             pid: p.pid,
             cls: { me: p.pid === myPid.value, missing: near && !freePids.has(p.pid) },
-            style: freePids.has(p.pid) ? { background: colorOf(p.color).hex } : {},
+            style: freePids.has(p.pid) ? { background: colorOf(p.color).hex, opacity: p.waiting ? 0.5 : 1 } : {},
           }));
         out.push({
           key: k, d, k, past, gold, near, stickers,

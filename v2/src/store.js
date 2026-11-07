@@ -2,13 +2,14 @@
 import { reactive, ref, computed, watch } from 'vue';
 import {
   doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, writeBatch,
-  serverTimestamp, increment, arrayUnion, query, orderBy,
+  serverTimestamp, increment, arrayUnion, query, orderBy, Timestamp,
 } from 'firebase/firestore';
 import {
   onAuthStateChanged, signInAnonymously, signInWithPopup, GoogleAuthProvider, signOut as fbSignOut,
 } from 'firebase/auth';
 import { db, auth } from './firebase.js';
 import { pickColor } from './lib/palette.js';
+import { planImport } from './lib/v1import.js';
 import { newRoomCode, newGuestCode, newPid, isRoomCode, isGuestCode } from './lib/codes.js';
 import { keyOfDate, startOfToday } from '../../src/lib/dates.js';
 
@@ -59,7 +60,7 @@ export function forgetRoom(roomId) {
 }
 
 // ------------------------------------------------------------------ auth + profile
-export const session = reactive({ ready: false, user: null, profile: null, profileLoaded: false });
+export const session = reactive({ ready: false, user: null, profile: null, profileLoaded: false, isAdmin: false });
 export const isGoogle = computed(() => !!session.user && !session.user.isAnonymous);
 let unsubProfile = null;
 
@@ -68,12 +69,14 @@ onAuthStateChanged(auth, (user) => {
   session.ready = true;
   session.profile = null;
   session.profileLoaded = false;
+  session.isAdmin = false;
   if (unsubProfile) { unsubProfile(); unsubProfile = null; }
   if (user && !user.isAnonymous) {
     unsubProfile = onSnapshot(doc(db, 'users', user.uid), (s) => {
       session.profile = s.exists() ? s.data() : null;
       session.profileLoaded = true;
     }, (e) => { session.profileLoaded = true; say(explain(e), 'error'); });
+    getDoc(doc(db, 'admins', user.uid)).then((s) => { session.isAdmin = s.exists(); }, () => {});
   }
 });
 
@@ -173,6 +176,7 @@ export async function joinWithGuestCode(roomCode, guestCode) {
   first.update(inviteRef, { claimedBy: user.uid });
   first.set(mine, {
     name: inv.name, color: inv.color, kind: 'guest', role: 'participant', status: 'active', pid: inv.pid, inviteCode: guestCode, joinedAt: serverTimestamp(),
+    ...(inv.meetId ? { meetId: inv.meetId } : {}),
   });
   try {
     await first.commit();
@@ -189,8 +193,12 @@ export const room = reactive({
   id: '', data: null, members: [], meetups: [], invites: [], error: '', loaded: false,
 });
 const unsubs = [];
+let meetupsUnsub = null;
+let meetupsScope = null;
 function stopRoom() {
   while (unsubs.length) unsubs.pop()();
+  if (meetupsUnsub) { meetupsUnsub(); meetupsUnsub = null; }
+  meetupsScope = null;
   stopMeetup();
   Object.assign(room, { id: '', data: null, members: [], meetups: [], invites: [], error: '', loaded: false });
 }
@@ -210,10 +218,25 @@ export function openRoom(roomId) {
   }, fail));
   unsubs.push(onSnapshot(collection(db, 'rooms', roomId, 'members'), (s) => {
     room.members = s.docs.map((d) => ({ uid: d.id, ...d.data() }));
+    watchMeetups(fail);
   }, fail));
-  unsubs.push(onSnapshot(query(collection(db, 'rooms', roomId, 'meetups'), orderBy('createdAt', 'desc')), (s) => {
-    room.meetups = s.docs.map((d) => ({ id: d.id, ...d.data() }));
-  }, fail));
+}
+
+/** Everyone in the gang sees all meetups; a meetup-only guest sees just theirs (rules enforce the same). */
+function watchMeetups(fail) {
+  const me = myMember.value;
+  if (!me) return;
+  const scope = me.meetId || '';
+  if (meetupsUnsub && scope === meetupsScope) return;
+  if (meetupsUnsub) meetupsUnsub();
+  meetupsScope = scope;
+  meetupsUnsub = scope
+    ? onSnapshot(doc(db, 'rooms', room.id, 'meetups', scope), (s) => {
+      room.meetups = s.exists() ? [{ id: s.id, ...s.data() }] : [];
+    }, fail)
+    : onSnapshot(query(collection(db, 'rooms', room.id, 'meetups'), orderBy('createdAt', 'desc')), (s) => {
+      room.meetups = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+    }, fail);
 }
 
 function rememberRoomName(roomId, name, as) {
@@ -266,13 +289,13 @@ export async function rotateRoomCode() {
   return null;
 }
 
-export async function createInvite(name, color) {
+export async function createInvite(name, color, meetId = null) {
   const pid = newPid();
   for (let attempt = 0; attempt < 3; attempt++) {
     const code = newGuestCode();
     try {
       await setDoc(doc(db, 'rooms', room.id, 'invites', code), {
-        name, color, pid, claimedBy: null, createdBy: session.user.uid, createdAt: serverTimestamp(),
+        name, color, pid, claimedBy: null, createdBy: session.user.uid, createdAt: serverTimestamp(), ...(meetId ? { meetId } : {}),
       });
       return code;
     } catch (e) { if (attempt === 2) throw e; }
@@ -293,6 +316,18 @@ export const takenColors = computed(() => {
 /** Change my colour in this room only (Google members; a guest's colour is set by the host). */
 export async function setMyColor(color) {
   await updateDoc(doc(db, 'rooms', room.id, 'members', session.user.uid), { color });
+}
+
+/** Make someone a guest of one meetup (meetId) or a full member of the gang (null). Keeps their invite in step. */
+export async function setScope(m, meetId) {
+  const b = writeBatch(db);
+  b.update(doc(db, 'rooms', room.id, 'members', m.uid), { meetId: meetId || null });
+  if (m.kind === 'guest' && m.inviteCode) b.update(doc(db, 'rooms', room.id, 'invites', m.inviteCode), { meetId: meetId || null });
+  await b.commit();
+}
+
+export async function setInviteScope(code, meetId) {
+  await updateDoc(doc(db, 'rooms', room.id, 'invites', code), { meetId: meetId || null });
 }
 
 export async function setRole(m, role) {
@@ -458,10 +493,23 @@ export function toggleVote(field, value) {
 }
 
 // ----- derived views of the meetup -----
-/** People counted in this meetup: active, not hidden by a host. Mine merged from local edits. */
+/**
+ * Everyone who belongs to this meetup: the gang, this meetup's guests, and people whose entry was
+ * imported from v1 but who have not opened their invite yet (shown faded, still counted).
+ */
+export const meetRoster = computed(() => {
+  const inRoom = people.value.filter((p) => !p.meetId || p.meetId === meetup.id);
+  const known = new Set(room.members.map((m) => m.pid));
+  const waiting = meetup.avail
+    .filter((a) => a.name && !known.has(a.pid))
+    .map((a) => ({ pid: a.pid, name: a.name, color: a.color, role: 'participant', waiting: true }));
+  return [...inRoom, ...waiting];
+});
+
+/** People counted in this meetup: the roster minus anyone a host hid. Mine merged from local edits. */
 export const meetPeople = computed(() => {
   const hidden = new Set(meetup.avail.filter((a) => a.hidden).map((a) => a.pid));
-  return people.value.filter((p) => !hidden.has(p.pid));
+  return meetRoster.value.filter((p) => !hidden.has(p.pid));
 });
 
 const availFor = (pid) => {
@@ -504,6 +552,7 @@ export const placesRanked = computed(() => {
 
 export const personByPid = computed(() => {
   const m = new Map();
+  for (const a of meetup.avail) if (a.name) m.set(a.pid, { pid: a.pid, name: a.name, color: a.color });
   for (const x of room.members) m.set(x.pid, x);
   return m;
 });
@@ -576,4 +625,59 @@ export async function loadMyRooms() {
   }
   myRooms.list = out;
   myRooms.loading = false;
+}
+
+// ------------------------------------------------------------------ v1 → v2 (site admin, docs/decisions/0001)
+export const V1_MEETUP = 'v1';
+
+/**
+ * Copy the v1 first meetup into this room as meetup "v1". Safe to run again: people who already
+ * saved in v2 keep their own entry, places are added or removed to match v1.
+ */
+export async function importFromV1() {
+  if (!session.isAdmin) throw new Error('เฉพาะผู้ดูแลระบบ');
+  const roomId = room.id;
+  const [pSnap, plSnap, invSnap] = await Promise.all([
+    getDocs(collection(db, 'people')), getDocs(collection(db, 'places')), getDocs(collection(db, 'rooms', roomId, 'invites')),
+  ]);
+  const roster = [
+    ...room.members.filter((m) => m.status === 'active').map((m) => ({ name: m.name, pid: m.pid, color: m.color })),
+    ...invSnap.docs.map((d) => d.data()).filter((i) => !room.members.some((m) => m.pid === i.pid)).map((i) => ({ name: i.name, pid: i.pid, color: i.color })),
+  ];
+  const plan = planImport({
+    people: pSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+    places: plSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+    roster,
+  });
+
+  const mRef = doc(db, 'rooms', roomId, 'meetups', V1_MEETUP);
+  if (!(await getDoc(mRef)).exists()) {
+    await setDoc(mRef, {
+      title: 'นัดแรก', status: 'open', result: null, drawCount: { date: 0, place: 0 }, createdBy: session.user.uid, createdAt: serverTimestamp(),
+    });
+  }
+  const [aSnap, placeSnap] = await Promise.all([getDocs(collection(mRef, 'avail')), getDocs(collection(mRef, 'places'))]);
+  const ownEntry = new Set(aSnap.docs.filter((d) => !('name' in d.data())).map((d) => d.id));
+  const havePlaces = new Set(placeSnap.docs.map((d) => d.id));
+
+  const b = writeBatch(db);
+  let people = 0;
+  const kept = [];
+  for (const a of plan.avail) {
+    if (ownEntry.has(a.pid)) { kept.push(a.name); continue; }
+    b.set(doc(mRef, 'avail', a.pid), {
+      dates: a.dates, voteDates: a.voteDates, votePlaces: a.votePlaces, hidden: false, updatedAt: serverTimestamp(), name: a.name, color: a.color,
+    });
+    people++;
+  }
+  const wanted = new Set(plan.places.map((p) => p.id));
+  for (const p of plan.places) {
+    if (havePlaces.has(p.id)) continue;
+    b.set(doc(mRef, 'places', p.id), {
+      title: p.title, mapsUrl: p.mapsUrl, gPlaceId: '', address: '', note: p.note, pid: p.pid, createdAt: Timestamp.fromMillis(p.createdAtMs || Date.now()),
+    });
+  }
+  for (const id of havePlaces) if (id.startsWith('v1_') && !wanted.has(id)) b.delete(doc(mRef, 'places', id));
+  await b.commit();
+  return { people, places: plan.places.length, kept, unmatched: plan.unmatched };
 }

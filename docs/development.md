@@ -3,18 +3,16 @@
 ## โครงสร้างไฟล์
 
 ```
-index.html                 ลิงก์เดิม: หน้าชี้ไป v2 (v1 ย้ายเข้า v2 แล้ว ดู docs/decisions/0001)
+index.html                 หน้าเว็บ + import map
 src/
-  firebase.js              config, App Check, ต่อ emulator อัตโนมัติบน localhost
-  lib/dates.js, maps.js    ฟังก์ชันวันที่และลิงก์แผนที่ (ไม่มี dependency)
-v2/                        v2: ห้อง, guest, member Google (เว็บที่ /v2/)
-  src/store.js             state + ทุกการอ่าน/เขียน Firestore และ Auth ของ v2
-  src/App.js               router จาก hash: #r-ห้อง, #m-ห้อง-นัด, #members-ห้อง, #j-รหัสห้อง-รหัสส่วนตัว
-  src/views/               JoinView, HomeView, RoomView, MeetupView, MembersView
-  src/components/          CalendarPanel, PlacesPanel, DrawPanel
-  src/lib/                 codes.js (สุ่มรหัส), palette.js (สีประจำตัว 12 สี)
-  src/style.css            design tokens ตาม docs/design-system.md
-firestore.rules            rules ของ v1 และ v2
+  firebase.js              config, App Check, Auth, ต่อ emulator อัตโนมัติบน localhost
+  store.js                 state + ทุกการอ่าน/เขียน Firestore และ Auth
+  App.js                   router จาก hash: #r-แก๊ง, #manage-แก๊ง, #m-แก๊ง-นัด, #g-รหัสแก๊ง, #j-รหัสแก๊ง-รหัสส่วนตัว
+  views/                   WelcomeView, HomeView, AcceptView, GangView, ManageView, MeetupView
+  components/              CalendarPanel, PlacesPanel, DrawPanel, AskSheet, SendSheet, DecideSheet, ProfileForm, EditableTitle
+  lib/                     dates, maps, codes (สุ่มรหัส), palette (สีประจำตัว 12 สี), share (ส่ง/คัดลอก) ไม่มี dependency
+  style.css                design tokens ตาม docs/design-system.md
+firestore.rules            rules ทั้งหมด (v1 people/places อ่านได้อย่างเดียว)
 tests/rules.test.mjs       ทดสอบ rules บน emulator
 tests/lib.test.mjs         ทดสอบฟังก์ชันใน lib ด้วย node
 tests/e2e.mjs              ทดสอบผ่านเบราว์เซอร์จริง (Playwright + emulator)
@@ -37,7 +35,7 @@ API key ของเว็บจริงไม่รับ localhost โดย�
 ```bash
 npm install                                         # ครั้งแรก (เครื่องมือทดสอบเท่านั้น)
 npx firebase emulators:start --only firestore,auth --project wang-mai
-python3 -m http.server 5173                         # อีกหน้าต่าง → http://localhost:5173/v2/
+python3 -m http.server 5173                         # อีกหน้าต่าง → http://localhost:5173/
 ```
 
 ## ทดสอบ

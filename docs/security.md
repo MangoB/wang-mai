@@ -1,4 +1,4 @@
-# Security — ว่างไหม v2
+# Security — ว่างไหม
 
 ออกแบบตาม `requirements.md` · rules: `firestore.rules` · ทดสอบ: `tests/rules.test.mjs`
 
@@ -88,8 +88,8 @@ config ของ Firebase อยู่ในหน้าเว็บ ซ่อ�
 - [x] App Check (reCAPTCHA Enterprise, key เฉพาะ `mangob.github.io`, token อายุ 12 ชั่วโมง) ลงทะเบียนและส่ง token จาก v1/v2
 - [x] rules v1 + v2 ผ่านชุดทดสอบบน emulator
 - [ ] Enforce App Check (Firestore + Auth) หลังดูกราฟ
-- [ ] `admins/{uid}` ของเจ้าของ (สร้างใน console หลังล็อกอิน v2 ครั้งแรก)
-- [ ] ย้ายนัดแรกเข้า v2 แล้วปิด `people`/`places` (Phase 2)
+- [x] `admins/{uid}` ของเจ้าของ
+- [x] ย้ายนัดแรกเข้า v2 แล้วปิดการเขียน `people`/`places`
 - [ ] รูปสถานที่ผ่านโปรเจกต์แผนที่แยก (Phase 4)
 
 ## กฎถาวร

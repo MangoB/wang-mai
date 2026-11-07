@@ -1,7 +1,7 @@
-// Pure helpers in src/lib and v2/src/lib. Run: node --test tests/lib.test.mjs
+// Pure helpers in src/lib. Run: node --test tests/lib.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickColor, freeColor } from '../v2/src/lib/palette.js';
+import { pickColor, freeColor } from '../src/lib/palette.js';
 
 test('pickColor keeps a free colour and replaces a taken one', () => {
   assert.equal(pickColor(3, [1, 2]), 3);

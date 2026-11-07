@@ -1,4 +1,4 @@
-/* ว่างไหม v2 — design tokens from docs/design-system.md.
+/* ว่างไหม — design tokens from docs/design-system.md.
    UI is ink on cool paper; bright colours belong to people only; gold means "everyone". */
 :root {
   --paper: #F3F5F9; --card: #FFFFFF; --sunk: #F7F8FB; --ink: #1B2236; --ink-2: #4F5874; --line: #DCE1EA;

@@ -2,6 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyCOlauR1Eek5WxnA6GyO7Guv1XXQ6G6MR4',
@@ -26,7 +27,11 @@ if (location.hostname === 'mangob.github.io') {
 }
 
 export const db = getFirestore(app);
+export const auth = getAuth(app);
 
 // Local development and CI talk to the Firebase Emulator, never to production.
 export const useEmulator = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-if (useEmulator) connectFirestoreEmulator(db, '127.0.0.1', 8080);
+if (useEmulator) {
+  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+}

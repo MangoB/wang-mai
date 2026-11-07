@@ -116,6 +116,13 @@ try {
     await page.getByRole('button', { name: 'เปิดนัดอีกครั้ง' }).waitFor({ timeout: 10000 });
   });
 
+  await step('co-host renames the meetup', async () => {
+    await page.getByRole('button', { name: 'แก้ชื่อนัด' }).click();
+    await page.getByRole('textbox', { name: 'ชื่อนัด' }).fill('ข้าวเย็นส่งท้ายปี');
+    await page.getByRole('button', { name: 'บันทึก', exact: true }).click();
+    await page.getByRole('heading', { name: 'ข้าวเย็นส่งท้ายปี' }).waitFor({ timeout: 10000 });
+  });
+
   await step('no errors in the browser console', async () => {
     const real = errors.filter((e) => !/favicon|fonts\.g/.test(e));
     assert.deepEqual(real, []);

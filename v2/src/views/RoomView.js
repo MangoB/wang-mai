@@ -1,11 +1,13 @@
 import { ref, computed, watch } from 'vue';
-import { room, openRoom, people, myMember, isHost, isOwner, createMeetup, session, say, explain, importFromV1, V1_MEETUP } from '../store.js';
+import { room, openRoom, people, myMember, isHost, isOwner, createMeetup, renameRoom, session, say, explain, importFromV1, V1_MEETUP } from '../store.js';
+import EditableTitle from '../components/EditableTitle.js';
 import { chipStyle } from '../lib/palette.js';
 import { prettyCode } from '../lib/codes.js';
 import { parseKey, MSHORT, WD_LONG } from '../../../src/lib/dates.js';
 
 export default {
   name: 'RoomView',
+  components: { EditableTitle },
   props: { roomId: String },
   setup(props) {
     watch(() => props.roomId, (id) => openRoom(id), { immediate: true });
@@ -44,6 +46,10 @@ export default {
       importing.value = false;
     }
 
+    async function rename(name) {
+      try { await renameRoom(name); say('เปลี่ยนชื่อแก๊งแล้ว'); } catch (e) { say(explain(e), 'error'); }
+    }
+
     const dayOf = (k) => { if (!k) return null; const d = parseKey(k); return { d: d.getDate(), m: MSHORT[d.getMonth()], w: WD_LONG[d.getDay()] }; };
     const inviteText = computed(() => room.data
       ? 'มานัดกันใน "ว่างไหม" ห้อง ' + room.data.name + '\nเข้าด้วย Google แล้วใส่รหัสห้อง ' + prettyCode(room.data.joinCode) + '\n' + location.origin + location.pathname
@@ -54,7 +60,7 @@ export default {
     }
 
     return {
-      room, people, gang, myMember, isHost, session, canImport, hasV1, importing, importNote, runImport, open, done, latestDone, title, creating, newMeetup, dayOf, chipStyle, prettyCode, copyInvite,
+      rename, room, people, gang, myMember, isHost, session, canImport, hasV1, importing, importNote, runImport, open, done, latestDone, title, creating, newMeetup, dayOf, chipStyle, prettyCode, copyInvite,
     };
   },
   template: /* html */ `
@@ -66,7 +72,7 @@ export default {
       <header class="row between" style="align-items: flex-end">
         <div class="grow">
           <p class="small muted" style="margin: 0">ห้อง</p>
-          <h1 style="font-size: 32px">{{ room.data.name }}</h1>
+          <EditableTitle :value="room.data.name" :can-edit="isHost" :max="40" label="ชื่อแก๊ง" size="32px" @save="rename" />
         </div>
         <a :href="'#members-' + room.data.id" class="chips" :aria-label="'แก๊ง ' + gang.length + ' คน'" style="text-decoration: none">
           <span v-for="p in gang" :key="p.pid" class="chip" :class="{ me: myMember && p.pid === myMember.pid }" :style="chipStyle(p.color)">{{ p.name.charAt(0) }}</span>

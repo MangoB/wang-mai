@@ -1,17 +1,18 @@
 import { ref, reactive, computed, watch } from 'vue';
 import {
   room, meetup, openMeetup, isHost, isOpen, saveState, topDates, placesRanked, goldDates, people, meetPeople, meetRoster,
-  concludeMeetup, reopenMeetup, setHidden, say, explain,
+  concludeMeetup, reopenMeetup, setHidden, renameMeetup, say, explain,
 } from '../store.js';
 import { fmtLong, parseKey, MSHORT, WD_LONG } from '../../../src/lib/dates.js';
 import { chipStyle } from '../lib/palette.js';
 import CalendarPanel from '../components/CalendarPanel.js';
 import PlacesPanel from '../components/PlacesPanel.js';
 import DrawPanel from '../components/DrawPanel.js';
+import EditableTitle from '../components/EditableTitle.js';
 
 export default {
   name: 'MeetupView',
-  components: { CalendarPanel, PlacesPanel, DrawPanel },
+  components: { CalendarPanel, PlacesPanel, DrawPanel, EditableTitle },
   props: { roomId: String, meetId: String },
   setup(props) {
     watch(() => [props.roomId, props.meetId], ([r, m]) => openMeetup(r, m), { immediate: true });
@@ -50,7 +51,12 @@ export default {
     });
     const entered = computed(() => meetup.avail.filter((a) => a.dates).length);
 
+    async function rename(title) {
+      try { await renameMeetup(title); say('เปลี่ยนชื่อนัดแล้ว'); } catch (e) { say(explain(e), 'error'); }
+    }
+
     return {
+      rename,
       room, meetup, isHost, isOpen, saveState, tab, sheet, openConclude, confirmConclude, reopen, topDates, placesRanked, fmtLong,
       people, meetPeople, meetRoster, hiddenPids, hasEntry, toggleHidden, chipStyle, result, resultDay, entered,
     };
@@ -66,7 +72,7 @@ export default {
     <template v-if="meetup.data">
       <header class="row between" style="align-items: flex-end">
         <div class="grow">
-          <h1>{{ meetup.data.title }}</h1>
+          <EditableTitle :value="meetup.data.title" :can-edit="isHost" :max="60" label="ชื่อนัด" @save="rename" />
           <p class="muted small" style="margin: 4px 0 0">
             <template v-if="isOpen">ลงว่างแล้ว {{ entered }} จาก {{ meetPeople.length }} คน</template>
             <template v-else>สรุปนัดแล้ว</template>

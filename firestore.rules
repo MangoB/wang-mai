@@ -155,10 +155,12 @@ service cloud.firestore {
           && request.resource.data.color == get(docPath('rooms/' + roomId + '/invites/' + request.resource.data.inviteCode)).data.color
           && request.resource.data.get('meetId', null) == get(docPath('rooms/' + roomId + '/invites/' + request.resource.data.inviteCode)).data.get('meetId', null);
 
-        // Self: members change their own name and color.
+        // Self: members change their own name and color. Someone who came in through a personal link and then
+        // signed in with Google (same uid) becomes a member: kind guest → member, optionally with their profile name.
         allow update: if mid == uid() && isMember(roomId)
-          && resource.data.kind == 'member'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'color'])
+          && (resource.data.kind == 'member' || isGoogle())
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'color', 'kind'])
+          && request.resource.data.kind in [resource.data.kind, 'member']
           && str(request.resource.data.name, 1, 30) && personColor(request.resource.data.color);
 
         // Hosts: block/unblock and make someone a guest of one meetup; the owner also promotes/demotes co-hosts.

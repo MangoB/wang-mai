@@ -1,5 +1,5 @@
 import { ref, watch } from 'vue';
-import { session, saveProfile, say, explain } from '../store.js';
+import { session, saveProfile, localRooms, say, explain } from '../store.js';
 import { COLORS } from '../lib/palette.js';
 
 // First sign-in with Google: pick the name and colour friends will see. Emits `saved`.
@@ -8,7 +8,9 @@ export default {
   props: { title: { type: String, default: 'ตั้งชื่อกับสีของคุณ' } },
   emits: ['saved'],
   setup(props, { emit }) {
-    const name = ref((session.user && session.user.displayName || '').split(' ')[0].slice(0, 30));
+    // Someone who came in through a personal link keeps that name by default.
+    const fromLink = localRooms.value.find((r) => r.as);
+    const name = ref((fromLink ? fromLink.as : (session.user && session.user.displayName || '').split(' ')[0]).slice(0, 30));
     const color = ref(7);
     const busy = ref(false);
     watch(() => session.profile, (p) => { if (p) { name.value = p.name; color.value = p.color; } }, { immediate: true });

@@ -5,7 +5,7 @@ import {
   serverTimestamp, increment, arrayUnion, query, orderBy,
 } from 'firebase/firestore';
 import {
-  onAuthStateChanged, signInAnonymously, signInWithPopup, GoogleAuthProvider, signOut as fbSignOut,
+  onAuthStateChanged, signInAnonymously, signInWithPopup, signInWithCredential, linkWithPopup, GoogleAuthProvider, signOut as fbSignOut,
 } from 'firebase/auth';
 import { db, auth } from './firebase.js';
 import { pickColor } from './lib/palette.js';
@@ -47,9 +47,11 @@ function writeLocalRooms(list) {
   try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch { /* private mode */ }
 }
 export const localRooms = ref(readLocalRooms());
-function rememberRoom(roomId, name, as) {
+/** Remember a gang joined in this browser; `link` keeps the personal link's codes so a later Google sign-in can take it along. */
+function rememberRoom(roomId, name, as, link) {
+  const prev = localRooms.value.find((r) => r.roomId === roomId) || {};
   const list = localRooms.value.filter((r) => r.roomId !== roomId);
-  list.unshift({ roomId, name, as });
+  list.unshift({ ...prev, roomId, name: name || prev.name || '', as: as || prev.as || '', ...(link || {}) });
   localRooms.value = list.slice(0, 20);
   writeLocalRooms(localRooms.value);
 }
@@ -70,7 +72,7 @@ export const session = reactive({ ready: false, user: null, profile: null, profi
 export const isGoogle = computed(() => !!session.user && !session.user.isAnonymous);
 let unsubProfile = null;
 
-onAuthStateChanged(auth, (user) => {
+function applyUser(user) {
   session.user = user;
   session.ready = true;
   session.profile = null;
@@ -82,12 +84,69 @@ onAuthStateChanged(auth, (user) => {
       session.profileLoaded = true;
     }, (e) => { session.profileLoaded = true; say(explain(e), 'error'); });
   }
-});
-
-export async function signInGoogle() {
-  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
-  catch (e) { say(explain(e), 'error'); }
 }
+onAuthStateChanged(auth, applyUser);
+
+/**
+ * Sign in with Google. Someone who came in through a personal link keeps who they are:
+ * the link identity is upgraded to the Google account (same uid), so their gangs and history follow the account.
+ * If that Google account was used here before, we sign into it and take the remembered personal links along.
+ */
+export async function signInGoogle() {
+  const provider = new GoogleAuthProvider();
+  const current = auth.currentUser;
+  try {
+    if (current && current.isAnonymous) {
+      const res = await linkWithPopup(current, provider);
+      // Sign in again with the same credential so the session counts as Google (rules check the sign-in provider).
+      const cred = await signInWithCredential(auth, GoogleAuthProvider.credentialFromResult(res));
+      session.user = null; // same user object, now with Google: make the UI notice
+      applyUser(cred.user);
+    } else {
+      await signInWithPopup(auth, provider);
+    }
+  } catch (e) {
+    if (e.code === 'auth/credential-already-in-use') {
+      const cred = GoogleAuthProvider.credentialFromError(e);
+      await signInWithCredential(auth, cred);
+      await takeLinksAlong();
+      return;
+    }
+    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+    say(explain(e), 'error');
+  }
+}
+
+/** After switching to an existing Google account: claim every personal link this browser used, for the account. */
+async function takeLinksAlong() {
+  for (const r of localRooms.value) {
+    if (!r.rc || !r.gc) continue;
+    try { await joinWithGuestCode(r.rc, r.gc); } catch { /* link revoked or reused elsewhere: skip */ }
+  }
+  await adoptLinkedGangs();
+}
+
+/**
+ * Signed in with Google and has a profile: every gang this account is in through a personal link becomes a
+ * normal membership under the profile name (rules allow kind guest → member for Google users).
+ */
+async function adoptLinkedGangs() {
+  const user = auth.currentUser;
+  const p = session.profile;
+  if (!user || user.isAnonymous || !p) return;
+  const ids = [...new Set([...(p.rooms || []), ...localRooms.value.map((r) => r.roomId)])];
+  for (const id of ids) {
+    try {
+      const ref_ = doc(db, 'rooms', id, 'members', user.uid);
+      const m = await getDoc(ref_);
+      if (m.exists() && m.data().kind === 'guest' && m.data().status === 'active') await updateDoc(ref_, { kind: 'member', name: p.name });
+    } catch { /* not a member there any more: skip */ }
+  }
+}
+let adoptedFor = '';
+watch(() => session.profile && session.user && session.user.uid, (uid) => {
+  if (uid && uid !== adoptedFor && isGoogle.value) { adoptedFor = uid; adoptLinkedGangs(); }
+});
 
 export async function signOut() {
   stopRoom();
@@ -99,7 +158,8 @@ export async function saveProfile(name, color) {
   const uid = session.user.uid;
   const ref_ = doc(db, 'users', uid);
   if (session.profile) await updateDoc(ref_, { name, color });
-  else await setDoc(ref_, { name, color, roomCount: 0, rooms: [], createdAt: serverTimestamp() });
+  // First Google profile: gangs this browser joined through personal links go into the account's history.
+  else await setDoc(ref_, { name, color, roomCount: 0, rooms: localRooms.value.map((r) => r.roomId).slice(0, 50), createdAt: serverTimestamp() });
 }
 
 async function ensureSignedIn() {
@@ -204,10 +264,10 @@ export async function joinWithGuestCode(roomCode, guestCode) {
     // This browser joined before (its member doc exists): taking the code back is enough.
     await updateDoc(inviteRef, { claimedBy: user.uid });
   }
-  rememberRoom(roomId, '', inv.name);
+  rememberRoom(roomId, '', inv.name, { rc: roomCode, gc: guestCode });
   // Signed in with Google: keep this gang (or meetup) in the account's history too.
-  if (!user.isAnonymous && session.profile) {
-    try { await updateDoc(doc(db, 'users', user.uid), { rooms: arrayUnion(roomId) }); } catch { /* history only */ }
+  if (!user.isAnonymous) {
+    try { await updateDoc(doc(db, 'users', user.uid), { rooms: arrayUnion(roomId) }); } catch { /* no profile yet: added when it is created */ }
   }
   return { roomId, meetId: inv.meetId || '' };
 }

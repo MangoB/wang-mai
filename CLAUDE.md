@@ -1,17 +1,19 @@
 # wang-mai — notes for Claude / agents
 
-Read `docs/development.md` first: file layout and conventions.
+Read `docs/development.md` first: file layout, local emulator setup, tests. Scope: `docs/requirements.md`; status: `docs/roadmap.md`.
 
 ## Git
 - `main` holds finished, tested work only. Work on a branch; merge into `main` as one clean commit per feature.
-- Drafts, plans, mockups and experiments stay off `main` (planning lives on the `v2` branch).
+- Drafts, mockups and experiments stay off `main`.
+- `npm test` (rules) and `npm run test:e2e` (browser) must pass before merging; CI runs both on every push.
 - Commit messages describe what the change delivers, not the back-and-forth.
 
 ## Code
 - UI copy is Thai. Keep it plain and short.
 - No build step: Vue 3 + Firebase loaded via import map in `index.html`. Components are JS objects with `template` strings in `src/components/`. No `.vue` files or npm deps unless the project moves to Vite.
-- All Firestore access lives in `src/store.js`. Components call store functions only.
-- Changing stored fields means updating `src/store.js`, `firestore.rules` and `docs/data-model.md` together. Rules are published separately (console or `firebase deploy --only firestore:rules`); tell the user when they need republishing.
+- v1 lives in `index.html` + `src/`; v2 in `v2/` and reuses `src/firebase.js` and `src/lib/*`.
+- All Firebase access lives in each version's `store.js`. Components call store functions only.
+- Changing stored fields means updating the `store.js`, `firestore.rules` (+ a test in `tests/rules.test.mjs`) and `docs/data-model.md` together. Rules are published separately (console or `firebase deploy --only firestore:rules`); tell the user when they need republishing.
 - `src/lib/*` is dependency-free; test changes there with node.
 - Style through the CSS tokens in `src/style.css`; keep light and dark working and the layout usable at 400px.
 - Deploy: push to `main` → GitHub Actions → https://mangob.github.io/wang-mai/

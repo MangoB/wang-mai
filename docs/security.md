@@ -1,6 +1,6 @@
 # Security — ว่างไหม v2
 
-สถานะ: **ร่าง** (7 พ.ย. 2026) · ออกแบบตาม `requirements.md` · rules ร่างอยู่ที่ `firestore.v2.rules` (ยังไม่ publish)
+ออกแบบตาม `requirements.md` · rules: `firestore.rules` · ทดสอบ: `tests/rules.test.mjs`
 
 ## หลักการ
 
@@ -81,19 +81,16 @@ config ของ Firebase อยู่ในหน้าเว็บ ซ่อ�
 - เกินเพดาน → การ์ดแสดงแผนที่ฝังแทนรูป, ไม่มีค่าใช้จ่าย
 - เก็บเฉพาะ `gPlaceId` ใน db (เงื่อนไขของ Google ห้าม cache รูป/รายละเอียด)
 
-## ขั้นตอนลงมือ
+## สถานะ
 
-- [x] ล็อก API key ของ Firebase (เฉพาะ `mangob.github.io`, `wang-mai.firebaseapp.com` — **ไม่มี localhost**)
-- [x] rules v1 publish แล้ว
-- [ ] Firebase Emulator สำหรับพัฒนาในเครื่อง + ทดสอบ `firestore.v2.rules` (unit test ของ rules)
-- [ ] เปิด Auth: Google, Anonymous; ใส่ `wang-mai.firebaseapp.com` + `mangob.github.io` ใน Authorized domains (เอา `localhost` ออก)
-- [ ] App Check: สร้าง reCAPTCHA Enterprise key (โดเมน `mangob.github.io` เท่านั้น) → register → deploy (ยังไม่ enforce)
-- [ ] สร้าง `admins/{uid}` ของเจ้าของใน console
-- [ ] เขียน v2 → publish `firestore.v2.rules` แทน `firestore.rules`
-- [ ] ย้ายข้อมูล v1 (8 คน) เข้าห้องแรกเป็น guest + gen ลิงก์เชิญ
-- [ ] ดูกราฟ App Check 1 วัน → **Enforce** (Firestore + Auth)
-- [ ] ลบ `people`/`places` เดิม
-- [ ] (แยก) โปรเจกต์แผนที่ + เพดาน → รูปสถานที่
+- [x] API key ของ Firebase ใช้ได้เฉพาะ `mangob.github.io` และ `wang-mai.firebaseapp.com` (ไม่มี localhost)
+- [x] Auth: Google + Anonymous, Authorized domains ไม่มี localhost
+- [x] App Check (reCAPTCHA Enterprise, key เฉพาะ `mangob.github.io`, token อายุ 12 ชั่วโมง) ลงทะเบียนและส่ง token จาก v1/v2
+- [x] rules v1 + v2 ผ่านชุดทดสอบบน emulator
+- [ ] Enforce App Check (Firestore + Auth) หลังดูกราฟ
+- [ ] `admins/{uid}` ของเจ้าของ (สร้างใน console หลังล็อกอิน v2 ครั้งแรก)
+- [ ] ย้ายนัดแรกเข้า v2 แล้วปิด `people`/`places` (Phase 2)
+- [ ] รูปสถานที่ผ่านโปรเจกต์แผนที่แยก (Phase 4)
 
 ## กฎถาวร
 

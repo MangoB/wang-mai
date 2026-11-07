@@ -229,16 +229,6 @@ service cloud.firestore {
           allow update: if isHost(roomId)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hidden'])
             && request.resource.data.hidden is bool;
-          // Site admin imports someone's v1 entry (docs/decisions/0001). name/color show the person until they join.
-          allow create, update: if isAdmin() && isOpen()
-            && request.resource.data.keys().hasOnly(['dates', 'voteDates', 'votePlaces', 'hidden', 'updatedAt', 'name', 'color'])
-            && dateList(request.resource.data.dates)
-            && dateList(request.resource.data.voteDates)
-            && isList(request.resource.data.votePlaces, 100)
-            && request.resource.data.hidden == false
-            && str(request.resource.data.name, 1, 30) && personColor(request.resource.data.color)
-            && request.resource.data.updatedAt == request.time
-            && (resource == null || 'name' in resource.data);
           allow delete: if isHost(roomId);
         }
 
@@ -254,20 +244,8 @@ service cloud.firestore {
             && str(request.resource.data.note, 0, 300)
             && request.resource.data.pid == member(roomId).pid
             && request.resource.data.createdAt == request.time;
-          // Site admin imports v1 places; their ids start with v1_.
-          allow create: if isAdmin() && isOpen() && placeId.matches('^v1_.+')
-            && request.resource.data.keys().hasOnly(['title', 'mapsUrl', 'gPlaceId', 'address', 'note', 'pid', 'createdAt'])
-            && str(request.resource.data.title, 1, 80)
-            && str(request.resource.data.mapsUrl, 0, 500)
-            && (request.resource.data.mapsUrl == '' || request.resource.data.mapsUrl.matches('^https://.+'))
-            && str(request.resource.data.gPlaceId, 0, 300)
-            && str(request.resource.data.address, 0, 200)
-            && str(request.resource.data.note, 0, 300)
-            && str(request.resource.data.pid, 1, 40)
-            && request.resource.data.createdAt is timestamp;
           allow update: if false;
-          allow delete: if (canSee() && (resource.data.pid == member(roomId).pid || isHost(roomId)))
-            || (isAdmin() && placeId.matches('^v1_.+'));
+          allow delete: if canSee() && (resource.data.pid == member(roomId).pid || isHost(roomId));
         }
 
         // Random draws: append-only evidence; the same batch bumps meetup.drawCount.<kind> by 1 (max 3).

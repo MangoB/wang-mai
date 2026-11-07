@@ -116,11 +116,10 @@ export default {
           <h2>ใครอยู่ในนัดนี้</h2>
           <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
             <li v-for="p in meetRoster" :key="p.pid" class="row between">
-              <span class="row" :style="hiddenPids.has(p.pid) || p.waiting ? 'opacity: .5' : ''">
+              <span class="row" :style="hiddenPids.has(p.pid) ? 'opacity: .45' : ''">
                 <span class="chip" :style="chipStyle(p.color)">{{ p.name.charAt(0) }}</span>
                 <span :style="hiddenPids.has(p.pid) ? 'text-decoration: line-through' : ''">{{ p.name }}</span>
                 <span v-if="p.meetId" class="tag">แขก</span>
-                <span v-if="p.waiting" class="small muted">ยังไม่กดลิงก์เชิญ</span>
               </span>
               <button v-if="isHost && isOpen && hasEntry(p.pid)" class="btn sm ghost" @click="toggleHidden(p)">
                 {{ hiddenPids.has(p.pid) ? 'นับรวม' : 'ไม่นับนัดนี้' }}

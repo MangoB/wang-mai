@@ -1,5 +1,5 @@
 import { ref, computed, watch } from 'vue';
-import { room, openRoom, people, myMember, isHost, isOwner, createMeetup, renameRoom, session, say, explain, importFromV1, V1_MEETUP } from '../store.js';
+import { room, openRoom, people, myMember, isHost, createMeetup, renameRoom, session, say, explain } from '../store.js';
 import EditableTitle from '../components/EditableTitle.js';
 import { chipStyle } from '../lib/palette.js';
 import { prettyCode } from '../lib/codes.js';
@@ -30,22 +30,6 @@ export default {
     // The gang: everyone who is not a guest of a single meetup.
     const gang = computed(() => people.value.filter((p) => !p.meetId));
 
-    // ----- bring the v1 first meetup in (site admin who owns the room, docs/decisions/0001) -----
-    const canImport = computed(() => session.isAdmin && isOwner.value);
-    const hasV1 = computed(() => room.meetups.some((m) => m.id === V1_MEETUP));
-    const importing = ref(false);
-    const importNote = ref('');
-    async function runImport() {
-      importing.value = true;
-      try {
-        const r = await importFromV1();
-        importNote.value = 'ดึงแล้ว ' + r.people + ' คน, ' + r.places + ' สถานที่'
-          + (r.kept.length ? ' · ไม่ทับข้อมูลที่แก้ใน v2 แล้ว: ' + r.kept.join(', ') : '')
-          + (r.unmatched.length ? ' · ไม่พบชื่อในห้อง: ' + r.unmatched.join(', ') : '');
-      } catch (e) { say(explain(e), 'error'); }
-      importing.value = false;
-    }
-
     async function rename(name) {
       try { await renameRoom(name); say('เปลี่ยนชื่อแก๊งแล้ว'); } catch (e) { say(explain(e), 'error'); }
     }
@@ -60,7 +44,7 @@ export default {
     }
 
     return {
-      rename, room, people, gang, myMember, isHost, session, canImport, hasV1, importing, importNote, runImport, open, done, latestDone, title, creating, newMeetup, dayOf, chipStyle, prettyCode, copyInvite,
+      rename, room, people, gang, myMember, isHost, session, open, done, latestDone, title, creating, newMeetup, dayOf, chipStyle, prettyCode, copyInvite,
     };
   },
   template: /* html */ `
@@ -109,13 +93,6 @@ export default {
           <input id="mtitle" class="input grow" v-model="title" maxlength="60" placeholder="นัดใหม่ เช่น ข้าวเย็นปลายปี">
           <button class="btn primary" type="submit" :disabled="creating || !title.trim()">สร้างนัด</button>
         </form>
-      </section>
-
-      <section v-if="canImport" class="sheet outlined stack">
-        <h2>นัดแรกจากลิงก์เดิม</h2>
-        <p class="small muted" style="margin: 0">ดึงวันว่าง ร้าน และโหวตจากลิงก์เดิมมาเป็นนัด "นัดแรก" กดซ้ำได้ ระบบจะไม่ทับข้อมูลของคนที่แก้ใน v2 แล้ว</p>
-        <button class="btn" style="align-self: flex-start" :disabled="importing" @click="runImport">{{ hasV1 ? 'ดึงข้อมูลล่าสุดอีกครั้ง' : 'ดึงข้อมูลจากลิงก์เดิม' }}</button>
-        <p v-if="importNote" class="small" style="margin: 0">{{ importNote }}</p>
       </section>
 
       <section class="ink-band row between">

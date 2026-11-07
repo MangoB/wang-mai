@@ -113,7 +113,7 @@ try {
     await page.getByText(/ครั้งที่ 1 โดย ทราย/).waitFor({ timeout: 10000 });
     await page.getByRole('button', { name: 'ใช้ผลนี้สรุปนัด' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'สรุปนัด' }).click();
-    await page.getByText('สรุปนัดแล้ว', { exact: true }).waitFor({ timeout: 10000 });
+    await page.getByRole('button', { name: 'เปิดนัดอีกครั้ง' }).waitFor({ timeout: 10000 });
   });
 
   await step('no errors in the browser console', async () => {

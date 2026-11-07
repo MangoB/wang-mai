@@ -85,7 +85,7 @@ export default {
       </header>
 
       <!-- สรุปนัด: day and place, decided separately -->
-      <section class="gold-card stack" :class="{ ticket: !isOpen }" style="gap: 8px; padding: 12px 16px" aria-label="สรุปนัด">
+      <section class="gold-card stack" :class="{ ticket: !isOpen }" style="gap: 8px; padding: 12px 16px; align-items: stretch" aria-label="สรุปนัด">
         <div class="row between small gold-ink"><b>{{ isOpen ? 'สรุปนัด' : 'นัดแล้ว' }}</b></div>
         <div class="row between">
           <span class="row" style="font-size: 16px"><span aria-hidden="true">📅</span>

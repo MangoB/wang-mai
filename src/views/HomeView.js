@@ -1,6 +1,6 @@
 import { ref, computed, watch } from 'vue';
 import {
-  session, isGoogle, createRoom, home, recentMeetups, pendingGang, setPendingGang,
+  session, isGoogle, signInGoogle, createRoom, home, recentMeetups, pendingGang, setPendingGang,
   ROLE_LABEL, say, explain,
 } from '../store.js';
 import { chipStyle } from '../lib/palette.js';
@@ -51,7 +51,7 @@ export default {
     const gangOf = (g) => g.gang.slice(0, 8);
 
     return {
-      session, isGoogle, needsProfile, home, recentMeetups, pendingGang, setPendingGang, asking, askable,
+      session, isGoogle, signInGoogle, needsProfile, home, recentMeetups, pendingGang, setPendingGang, asking, askable,
       creating, gangName, busy, left, create, code, join, summary, gangOf, chipStyle, ROLE_LABEL,
     };
   },
@@ -71,6 +71,11 @@ export default {
         <span class="grow"><b>{{ pendingGang.name || 'แก๊งเพื่อน' }}</b> ชวนคุณเข้าแก๊ง</span>
         <a class="btn sm primary" :href="'#g-' + pendingGang.code">รับ</a>
         <button class="btn sm" @click="setPendingGang(null)">ไม่รับ</button>
+      </div>
+
+      <div v-if="!isGoogle && home.gangs.length" class="sheet row" style="flex-direction: row; align-items: center; background: var(--sunk)">
+        <span class="grow small"><b>เก็บนัดไว้กับบัญชี Google</b><br><span class="muted">ชื่อและประวัติเดิมตามไปด้วย เปลี่ยนเครื่องก็ไม่หาย</span></span>
+        <button class="btn sm" @click="signInGoogle">ล็อกอิน</button>
       </div>
 
       <section v-if="recentMeetups.length" class="stack" aria-labelledby="recent-h">

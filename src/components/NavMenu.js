@@ -1,5 +1,5 @@
 import { computed } from 'vue';
-import { session, isGoogle, home, signOut } from '../store.js';
+import { session, isGoogle, home, signOut, signInGoogle } from '../store.js';
 import { chipStyle } from '../lib/palette.js';
 
 // The app menu: a drawer on phones (☰), a sidebar on wider screens that folds down to icons.
@@ -17,7 +17,7 @@ export default {
       color: (session.profile && session.profile.color) ?? (home.gangs[0] ? home.gangs[0].me.color : 7),
     }));
     const initial = (s) => (s || '?').charAt(0);
-    return { session, isGoogle, home, me, initial, chipStyle, signOut };
+    return { session, isGoogle, home, me, initial, chipStyle, signOut, signInGoogle };
   },
   template: /* html */ `
   <div v-if="open" class="scrim" @click="$emit('close')" aria-hidden="true"></div>
@@ -51,6 +51,10 @@ export default {
       <button type="button" class="nav-item rail-toggle" :title="rail ? 'กางเมนู' : 'ย่อเมนู'" @click="$emit('toggle-rail')">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path :d="rail ? 'M9 6l6 6-6 6' : 'M15 6l-6 6 6 6'"></path></svg>
         <span class="label">ย่อเมนู</span>
+      </button>
+      <button v-if="!isGoogle" type="button" class="nav-item" title="ล็อกอินด้วย Google" @click="signInGoogle">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H5v16h4M14 8l4 4-4 4M18 12H8"></path></svg>
+        <span class="label">ล็อกอินด้วย Google</span>
       </button>
       <!-- Without Google, signing out would lose the identity behind personal links on this device. -->
       <button v-if="isGoogle" type="button" class="nav-item" title="ออกจากระบบ" @click="signOut">

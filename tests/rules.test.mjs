@@ -315,6 +315,21 @@ test('hosts rename the gang (and its link name) and its meetups; participants ca
   await assertFails(updateDoc(doc(google('nat'), 'rooms', ROOM, 'meetups', 'm1'), { title: 'ของฉัน' }));
 });
 
+test('a personal-link guest who signs in with Google becomes a member under their profile name', async () => {
+  await createRoom(google('owner'), 'owner');
+  await createInvite(google('owner'), 'owner');
+  await claimInvite(guest('mos'), 'mos');
+  const asGuest = doc(guest('mos'), 'rooms', ROOM, 'members', 'mos');
+  await assertFails(updateDoc(asGuest, { name: 'มอสคุง' }));          // still anonymous: the name is set by whoever invited
+  await assertFails(updateDoc(asGuest, { kind: 'member' }));
+
+  const asGoogle = doc(google('mos'), 'rooms', ROOM, 'members', 'mos'); // same uid after linking Google
+  await assertFails(updateDoc(asGoogle, { role: 'cohost' }));
+  await assertFails(updateDoc(asGoogle, { kind: 'admin' }));
+  await assertSucceeds(updateDoc(asGoogle, { kind: 'member', name: 'มอสคุง' }));
+  await assertSucceeds(getDoc(doc(google('mos'), 'rooms', ROOM)));      // stays in the gang without the personal link
+});
+
 // ------------------------------------------------------------------ meetup-only guests
 
 test('members list meetups; a meetup-only guest sees and edits just that meetup', async () => {

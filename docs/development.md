@@ -7,9 +7,9 @@ index.html                 หน้าเว็บ + import map
 src/
   firebase.js              config, App Check, Auth, ต่อ emulator อัตโนมัติบน localhost
   store.js                 state + ทุกการอ่าน/เขียน Firestore และ Auth
-  App.js                   router จาก hash: #r-แก๊ง, #manage-แก๊ง, #m-แก๊ง-นัด, #g-รหัสแก๊ง, #j-รหัสแก๊ง-รหัสส่วนตัว
+  App.js                   router จาก hash: #new, #r-แก๊ง, #manage-แก๊ง, #m-แก๊ง-นัด, #g-รหัสแก๊ง, #j-รหัสแก๊ง-รหัสส่วนตัว
   views/                   WelcomeView, HomeView, AcceptView, GangView, ManageView, MeetupView
-  components/              CalendarPanel, PlacesPanel, DrawPanel, AskSheet, SendSheet, DecideSheet, ProfileForm, EditableTitle
+  components/              NavMenu, CalendarPanel, PlacesPanel, DrawPanel, AskSheet, SendSheet, DecideSheet, ProfileForm, EditableTitle
   lib/                     dates, maps, codes (สุ่มรหัส), palette (สีประจำตัว 12 สี), share (ส่ง/คัดลอก) ไม่มี dependency
   style.css                design tokens ตาม docs/design-system.md
 firestore.rules            rules ทั้งหมด (v1 people/places อ่านได้อย่างเดียว)

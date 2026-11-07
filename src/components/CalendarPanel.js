@@ -107,7 +107,7 @@ export default {
   },
   template: /* html */ `
   <section class="stack" style="gap: 12px">
-    <button v-if="goldDates.length" type="button" class="gold-card ticket" style="cursor: pointer; text-align: left" @click="jumpTo(goldDates[0])">
+    <button v-if="goldDates.length && isOpen" type="button" class="gold-card ticket" style="cursor: pointer; text-align: left" @click="jumpTo(goldDates[0])">
       <svg class="crown" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path :d="CROWN"></path></svg>
       <span class="grow">
         <b>ว่างครบแก๊ง {{ goldDates.length }} วัน</b><br>
@@ -116,35 +116,23 @@ export default {
     </button>
 
     <div class="sheet" style="padding: 12px 10px">
-      <div class="cal-head">
+      <div class="cal-head" style="gap: 8px">
+        <div class="row" style="gap: 2px; flex-wrap: nowrap; min-width: 0">
         <button class="icon-btn" @click="shift(-1)" :disabled="!canPrev" aria-label="เดือนก่อน">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
         </button>
-        <h2 class="display" style="font-weight: 600">{{ monthTitle(view.y, view.m) }}</h2>
+        <h2 class="display" style="font-weight: 600; font-size: 17px; white-space: nowrap">{{ monthTitle(view.y, view.m) }}</h2>
         <button class="icon-btn" @click="shift(1)" aria-label="เดือนถัดไป">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
         </button>
-      </div>
-      <div class="cal">
-        <span v-for="(w, i) in WD" :key="'w' + i" class="wd">{{ w }}</span>
-        <template v-for="c in cells" :key="c.key">
-          <span v-if="c.blank" class="day blank" aria-hidden="true"></span>
-          <button v-else type="button" class="day" :class="c.cls" :disabled="c.past" :aria-label="c.label" :aria-pressed="mine.dates.includes(c.k)" @click="tap(c)">
-            <span class="n"><span>{{ c.d }}</span>
-              <svg v-if="c.gold" class="crown" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path :d="CROWN"></path></svg>
-            </span>
-            <span class="quilt"><span v-for="s in c.stickers" :key="s.pid" class="sq" :class="s.cls" :style="s.style"></span></span>
-          </button>
-        </template>
-      </div>
-      <div class="row between" style="margin: 8px 4px 0; flex-wrap: nowrap; align-items: flex-start" v-if="isOpen">
-        <p class="small muted" style="margin: 0">แตะวันเพื่อลงหรือเอาวันที่คุณว่างออก สติกเกอร์ที่มีกรอบคือของคุณ</p>
-        <button type="button" class="btn sm" style="flex: none" :aria-expanded="quick.open" aria-controls="quick-form" @click="quick.open = !quick.open">
+        </div>
+        <!-- Bulk entry sits at the top so nobody taps day by day; it stands out until you have entered anything. -->
+        <button v-if="isOpen" type="button" class="btn sm" :class="{ primary: !mine.dates.length }" style="flex: none" :aria-expanded="quick.open" aria-controls="quick-form" @click="quick.open = !quick.open">
           ลงทีละหลายวัน
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" :style="quick.open ? 'transform: rotate(180deg)' : ''"><path d="M6 9l6 6 6-6"></path></svg>
         </button>
       </div>
-      <div v-if="quick.open" id="quick-form" class="stack" style="gap: 12px; padding: 12px 4px 4px; border-top: 1px solid var(--line); margin-top: 8px">
+      <div v-if="quick.open" id="quick-form" class="stack" style="gap: 12px; padding: 12px; margin: 10px 2px; border-radius: 12px; background: var(--sunk)">
         <div class="row">
           <button class="btn sm" @click="preset('weekend')">เสาร์-อาทิตย์ เดือนนี้</button>
           <button class="btn sm" @click="preset('fri')">ศุกร์ทั้งเดือน</button>
@@ -163,6 +151,19 @@ export default {
           <button class="btn" @click="apply(false)" :disabled="!quickDates.length">เอาออก</button>
         </div>
       </div>
+      <div class="cal">
+        <span v-for="(w, i) in WD" :key="'w' + i" class="wd">{{ w }}</span>
+        <template v-for="c in cells" :key="c.key">
+          <span v-if="c.blank" class="day blank" aria-hidden="true"></span>
+          <button v-else type="button" class="day" :class="c.cls" :disabled="c.past" :aria-label="c.label" :aria-pressed="mine.dates.includes(c.k)" @click="tap(c)">
+            <span class="n"><span>{{ c.d }}</span>
+              <svg v-if="c.gold" class="crown" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path :d="CROWN"></path></svg>
+            </span>
+            <span class="quilt"><span v-for="s in c.stickers" :key="s.pid" class="sq" :class="s.cls" :style="s.style"></span></span>
+          </button>
+        </template>
+      </div>
+      <p class="small muted" style="margin: 8px 4px 0" v-if="isOpen">แตะวันเพื่อลงหรือเอาวันที่คุณว่างออก สติกเกอร์ที่มีกรอบคือของคุณ</p>
     </div>
 
     <div class="sheet" v-if="selected">

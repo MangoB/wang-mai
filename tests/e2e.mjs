@@ -104,7 +104,7 @@ try {
     await page.getByText(/ว่างไหม\? 📅 ทริปทะเล/).waitFor();
     await page.getByRole('button', { name: 'ปิด', exact: true }).click();
     await page.getByRole('heading', { name: 'ทริปทะเล' }).waitFor();
-    await page.getByRole('button', { name: 'สรุปวัน', exact: true }).waitFor(); // the creator runs their own meetup
+    await page.getByRole('button', { name: /ยังไม่ได้เลือกวัน/ }).waitFor(); // the creator runs their own meetup: the summary is tappable
   });
 
   await step('co-host draws a date, decides the day, renames and closes', async () => {
@@ -121,7 +121,7 @@ try {
     await page.getByText(/ครั้งที่ 1 โดย ทราย/).waitFor({ timeout: 10000 });
     await page.getByRole('button', { name: 'ใช้สรุปวัน' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'สรุปวันนี้' }).click();
-    await page.getByRole('button', { name: 'สรุปสถานที่', exact: true }).waitFor({ timeout: 10000 });
+    await page.getByRole('button', { name: /ยังไม่ได้เลือกสถานที่/ }).waitFor({ timeout: 10000 });
     await env.withSecurityRulesDisabled(async (ctx) => {
       const s = await getDoc(doc(ctx.firestore(), 'rooms', ROOM, 'meetups', MEET));
       assert.ok([keyAfter(2), keyAfter(3)].includes(s.data().result.date), 'decided day is one of the drawn candidates');
@@ -135,6 +135,7 @@ try {
 
     await page.getByRole('button', { name: 'ปิดนัด', exact: true }).click();
     await page.getByRole('button', { name: 'เปิดนัดอีกครั้ง' }).waitFor({ timeout: 10000 });
+    await page.getByText('นัดสำเร็จ 🎉').waitFor();
   });
 
   await step('no errors in the browser console', async () => {

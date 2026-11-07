@@ -494,7 +494,8 @@ async function flush() {
         dates: [...mine.dates].sort().join(','),
         voteDates: [...mine.voteDates].sort().join(','),
         votePlaces: [...mine.votePlaces],
-        hidden: mine.hidden,
+        // Keep whatever "ไม่ไปรอบนี้" says right now: a host may have changed it since this page loaded.
+        hidden: !!(meetup.avail.find((x) => x.pid === me.pid) || {}).hidden,
         updatedAt: serverTimestamp(),
       });
     } catch (e) { ok = false; say(explain(e), 'error'); }
@@ -611,6 +612,14 @@ export async function removePlace(pl) {
 export const notYet = computed(() => meetPeople.value.filter((p) => !availFor(p.pid).dates.length));
 
 // ----- hide someone for this meetup (whoever runs it) -----
+/** "ไม่ไปรอบนี้" / "ไปด้วย" for myself. */
+export async function setMyGoing(going) {
+  const me = myMember.value;
+  const ref_ = doc(db, 'rooms', room.id, 'meetups', meetup.id, 'avail', me.pid);
+  if (meetup.avail.some((a) => a.pid === me.pid)) await updateDoc(ref_, { hidden: !going, updatedAt: serverTimestamp() });
+  else if (!going) await setDoc(ref_, { dates: '', voteDates: '', votePlaces: [], hidden: true, updatedAt: serverTimestamp() });
+}
+
 export async function setHidden(pid, hidden) {
   const ref_ = doc(db, 'rooms', room.id, 'meetups', meetup.id, 'avail', pid);
   if (meetup.avail.some((a) => a.pid === pid)) await updateDoc(ref_, { hidden });

@@ -75,7 +75,8 @@ export default {
           </span>
           <span class="row">
             <button v-if="canRemove(pl)" class="btn sm ghost" @click="remove(pl)" @blur="confirmId = ''">{{ confirmId === pl.id ? 'กดอีกครั้งเพื่อลบ' : 'ลบ' }}</button>
-            <button v-if="isOpen" class="vote" :aria-pressed="mine.votePlaces.includes(pl.id)" @click="toggleVote('votePlaces', pl.id)">{{ mine.votePlaces.includes(pl.id) ? 'โหวตแล้ว' : 'โหวต' }}</button>
+            <span v-if="isOpen && mine.votePlaces.includes(pl.id)" class="voted"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg> โหวตแล้ว</span>
+            <button v-if="isOpen" class="vote" :aria-pressed="mine.votePlaces.includes(pl.id)" :aria-label="(mine.votePlaces.includes(pl.id) ? 'ยกเลิกโหวต ' : 'โหวต ') + pl.title" @click="toggleVote('votePlaces', pl.id)">{{ mine.votePlaces.includes(pl.id) ? 'ยกเลิกโหวต' : 'โหวต' }}</button>
           </span>
         </div>
       </article>

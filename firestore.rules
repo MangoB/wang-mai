@@ -1,37 +1,41 @@
 rules_version = '2';
 
-// ว่างไหม — anyone with the link can read and write, but every write must match
-// the data model in docs/data-model.md. Paste this into
-// Firebase console → Firestore Database → Rules, then Publish.
+// ว่างไหม — Firestore security rules.
+//   v1 (people, places): the first meetup. Anyone with the page can read/write; every write is shape-checked.
+//   v2 (rooms/...):       rooms with Google members and guest invites. Layers: App Check → Auth → membership → role.
+// Data model: docs/data-model.md. Tests: tests/rules.test.mjs (run in CI on the emulator).
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isKey(k) {
-      // "p" + hex of the UTF-8 name (30 Thai chars = 90 bytes = 180 hex)
-      return k is string && k.matches('p[0-9a-f]{2,200}');
-    }
+    // ===================================================================== shared
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function isGoogle() { return signedIn() && request.auth.token.firebase.sign_in_provider == 'google.com'; }
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(uid())); }
+    function str(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+    function docPath(p) { return path('/databases/' + database + '/documents/' + p); }
 
-    function isStrList(v, max) {
-      return v is list && v.size() <= max;
-    }
+    // ===================================================================== v1
+    function isKey(k) { return k is string && k.matches('p[0-9a-f]{2,200}'); }
+    function isList(v, max) { return v is list && v.size() <= max; }
 
     function validPerson(d) {
       return d.keys().hasOnly(['name', 'dates', 'voteDates', 'votePlaces', 'updatedAt'])
         && d.keys().hasAll(['name', 'dates', 'voteDates', 'votePlaces'])
-        && d.name is string && d.name.size() > 0 && d.name.size() <= 30
-        && isStrList(d.dates, 1000)
-        && isStrList(d.voteDates, 200)
-        && isStrList(d.votePlaces, 200)
+        && str(d.name, 1, 30)
+        && isList(d.dates, 1000)
+        && isList(d.voteDates, 200)
+        && isList(d.votePlaces, 200)
         && (!('updatedAt' in d) || d.updatedAt is number);
     }
 
     function validPlace(d) {
       return d.keys().hasOnly(['title', 'url', 'note', 'by', 'byKey', 'createdAt'])
         && d.keys().hasAll(['title', 'url', 'by', 'byKey'])
-        && d.title is string && d.title.size() > 0 && d.title.size() <= 80
-        && d.url is string && d.url.size() <= 500 && (d.url == '' || d.url.matches('https?://.+'))
-        && (!('note' in d) || (d.note is string && d.note.size() <= 300))
-        && d.by is string && d.by.size() > 0 && d.by.size() <= 30
+        && str(d.title, 1, 80)
+        && str(d.url, 0, 500) && (d.url == '' || d.url.matches('https?://.+'))
+        && (!('note' in d) || str(d.note, 0, 300))
+        && str(d.by, 1, 30)
         && isKey(d.byKey)
         && (!('createdAt' in d) || d.createdAt is number);
     }
@@ -39,14 +43,235 @@ service cloud.firestore {
     match /people/{key} {
       allow read: if true;
       allow create, update: if isKey(key) && validPerson(request.resource.data);
-      allow delete: if true; // needed by "เริ่มนัดรอบใหม่"
+      allow delete: if true;
     }
 
     match /places/{id} {
       allow read: if true;
       allow create: if validPlace(request.resource.data);
       allow update: if false;
-      allow delete: if true; // remove own place + reset
+      allow delete: if true;
+    }
+
+    // ===================================================================== v2
+    // Codes avoid 0/O/1/I. Room code = 6, guest code = 8.
+    function code6(c) { return c is string && c.matches('^[A-HJ-NP-Z2-9]{6}$'); }
+    function code8(c) { return c is string && c.matches('^[A-HJ-NP-Z2-9]{8}$'); }
+    function personColor(c) { return c is int && c >= 0 && c < 12; }
+    // Up to 400 dates as "YYYY-MM-DD,YYYY-MM-DD,…" so one regex checks every date.
+    function dateList(v) {
+      return v is string && v.size() <= 4400
+        && (v == '' || v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}(,[0-9]{4}-[0-9]{2}-[0-9]{2})*$'));
+    }
+
+    function roomDoc(roomId) { return get(docPath('rooms/' + roomId)).data; }
+    function memberRef(roomId) { return docPath('rooms/' + roomId + '/members/' + uid()); }
+    function member(roomId) { return get(memberRef(roomId)).data; }
+    function inviteClaimedBy(roomId, c) { return get(docPath('rooms/' + roomId + '/invites/' + c)).data.claimedBy; }
+
+    // A guest stays a member only while their invite is claimed by this browser (re-claim on a new device revokes the old one).
+    function isMember(roomId) {
+      return signedIn() && exists(memberRef(roomId))
+        && member(roomId).status == 'active'
+        && (member(roomId).kind == 'member' || inviteClaimedBy(roomId, member(roomId).inviteCode) == uid());
+    }
+    function isHost(roomId) { return isMember(roomId) && member(roomId).role in ['owner', 'cohost']; }
+    function isOwner(roomId) { return isMember(roomId) && member(roomId).role == 'owner'; }
+
+    match /admins/{id} {
+      allow read: if signedIn() && id == uid();
+      allow write: if false;
+    }
+
+    // ----- member accounts (Google only) -----
+    match /users/{id} {
+      function validUser(d) {
+        return d.keys().hasOnly(['name', 'color', 'roomCount', 'rooms', 'createdAt'])
+          && str(d.name, 1, 30) && personColor(d.color)
+          && d.roomCount is int && isList(d.rooms, 50);
+      }
+      allow read: if signedIn() && id == uid();
+      allow create: if isGoogle() && id == uid()
+        && validUser(request.resource.data) && request.resource.data.roomCount == 0;
+      // roomCount never decreases and goes up by one only together with creating a room (max 5).
+      allow update: if isGoogle() && id == uid()
+        && validUser(request.resource.data)
+        && (request.resource.data.roomCount == resource.data.roomCount
+            || (request.resource.data.roomCount == resource.data.roomCount + 1 && request.resource.data.roomCount <= 5));
+    }
+
+    // ----- room codes: knowing the code is the secret (get only, never list) -----
+    match /joinCodes/{c} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if code6(c)
+        && request.resource.data.keys().hasOnly(['roomId'])
+        && (isHost(request.resource.data.roomId)
+            || (getAfter(docPath('rooms/' + request.resource.data.roomId)).data.ownerUid == uid()
+                && getAfter(docPath('rooms/' + request.resource.data.roomId)).data.joinCode == c));
+      allow update: if false;
+      allow delete: if isHost(resource.data.roomId) || isAdmin();
+    }
+
+    // ----- rooms -----
+    match /rooms/{roomId} {
+      allow get: if isMember(roomId) || isAdmin();
+      allow list: if isAdmin();
+      // One batch: users.roomCount +1, this room, its joinCode, the owner's member doc.
+      allow create: if isGoogle()
+        && request.resource.data.keys().hasOnly(['name', 'ownerUid', 'joinCode', 'createdAt'])
+        && request.resource.data.ownerUid == uid()
+        && str(request.resource.data.name, 1, 40)
+        && code6(request.resource.data.joinCode)
+        && request.resource.data.createdAt == request.time
+        && getAfter(docPath('users/' + uid())).data.roomCount == get(docPath('users/' + uid())).data.roomCount + 1
+        && getAfter(docPath('joinCodes/' + request.resource.data.joinCode)).data.roomId == roomId;
+      allow update: if isHost(roomId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'joinCode'])
+        && str(request.resource.data.name, 1, 40)
+        && code6(request.resource.data.joinCode)
+        && getAfter(docPath('joinCodes/' + request.resource.data.joinCode)).data.roomId == roomId;
+      allow delete: if isOwner(roomId) || isAdmin();
+
+      // ----- members -----
+      match /members/{mid} {
+        allow read: if isMember(roomId) || isAdmin();
+
+        // Google member joins by naming the room code (or is the owner creating the room).
+        allow create: if isGoogle() && mid == uid()
+          && request.resource.data.keys().hasOnly(['name', 'color', 'kind', 'role', 'status', 'pid', 'joinCode', 'joinedAt'])
+          && request.resource.data.kind == 'member'
+          && request.resource.data.status == 'active'
+          && request.resource.data.pid == uid()
+          && str(request.resource.data.name, 1, 30) && personColor(request.resource.data.color)
+          && request.resource.data.joinedAt == request.time
+          && getAfter(docPath('joinCodes/' + request.resource.data.joinCode)).data.roomId == roomId
+          && (request.resource.data.role == 'participant'
+              || (request.resource.data.role == 'owner' && getAfter(docPath('rooms/' + roomId)).data.ownerUid == uid()));
+
+        // Guest claims an invite in the same batch that sets invites/{code}.claimedBy = uid.
+        allow create: if signedIn() && mid == uid()
+          && request.resource.data.keys().hasOnly(['name', 'color', 'kind', 'role', 'status', 'pid', 'inviteCode', 'joinedAt'])
+          && request.resource.data.kind == 'guest'
+          && request.resource.data.role == 'participant'
+          && request.resource.data.status == 'active'
+          && request.resource.data.joinedAt == request.time
+          && getAfter(docPath('rooms/' + roomId + '/invites/' + request.resource.data.inviteCode)).data.claimedBy == uid()
+          && request.resource.data.pid == get(docPath('rooms/' + roomId + '/invites/' + request.resource.data.inviteCode)).data.pid
+          && request.resource.data.name == get(docPath('rooms/' + roomId + '/invites/' + request.resource.data.inviteCode)).data.name
+          && request.resource.data.color == get(docPath('rooms/' + roomId + '/invites/' + request.resource.data.inviteCode)).data.color;
+
+        // Self: members change their own name and color.
+        allow update: if mid == uid() && isMember(roomId)
+          && resource.data.kind == 'member'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'color'])
+          && str(request.resource.data.name, 1, 30) && personColor(request.resource.data.color);
+
+        // Hosts: block/unblock; the owner also promotes/demotes co-hosts. The owner's own doc is untouchable.
+        allow update: if isHost(roomId) && resource.data.role != 'owner'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'role'])
+          && request.resource.data.status in ['active', 'blocked']
+          && request.resource.data.role in ['participant', 'cohost']
+          && (request.resource.data.role == resource.data.role || isOwner(roomId));
+
+        // Leave (self) or remove (host). Blocked members are kept so they cannot rejoin.
+        allow delete: if resource.data.role != 'owner' && (mid == uid() || isHost(roomId));
+      }
+
+      // ----- guest invites: the document id is the guest's personal code -----
+      match /invites/{c} {
+        allow get: if signedIn();
+        allow list: if isHost(roomId);
+        allow create: if isHost(roomId) && code8(c)
+          && request.resource.data.keys().hasOnly(['name', 'color', 'pid', 'claimedBy', 'createdBy', 'createdAt'])
+          && str(request.resource.data.name, 1, 30) && personColor(request.resource.data.color)
+          && str(request.resource.data.pid, 20, 40)
+          && request.resource.data.claimedBy == null
+          && request.resource.data.createdBy == uid()
+          && request.resource.data.createdAt == request.time;
+        // Holding the code is the proof: claim it for this browser.
+        allow update: if signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedBy'])
+          && request.resource.data.claimedBy == uid();
+        allow delete: if isHost(roomId);
+      }
+
+      // ----- meetups -----
+      match /meetups/{meetId} {
+        function meetupData() { return get(docPath('rooms/' + roomId + '/meetups/' + meetId)).data; }
+        function isOpen() { return meetupData().status == 'open'; }
+        function drawBump(next, prev) {
+          return next == prev
+            || (next.date == prev.date + 1 && next.place == prev.place && next.date <= 3)
+            || (next.place == prev.place + 1 && next.date == prev.date && next.place <= 3);
+        }
+
+        allow read: if isMember(roomId) || isAdmin();
+        allow create: if isHost(roomId)
+          && request.resource.data.keys().hasOnly(['title', 'status', 'result', 'drawCount', 'createdBy', 'createdAt'])
+          && str(request.resource.data.title, 1, 60)
+          && request.resource.data.status == 'open'
+          && request.resource.data.result == null
+          && request.resource.data.drawCount == {'date': 0, 'place': 0}
+          && request.resource.data.createdBy == uid()
+          && request.resource.data.createdAt == request.time;
+        allow update: if isHost(roomId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'status', 'result', 'drawCount'])
+          && str(request.resource.data.title, 1, 60)
+          && request.resource.data.status in ['open', 'done']
+          && (request.resource.data.result == null || request.resource.data.result is map)
+          && drawBump(request.resource.data.drawCount, resource.data.drawCount);
+        allow delete: if isOwner(roomId);
+
+        // Availability and votes: one doc per person, keyed by pid (survives a guest's device change).
+        match /avail/{pid} {
+          allow read: if isMember(roomId) || isAdmin();
+          allow create, update: if isMember(roomId) && member(roomId).pid == pid && isOpen()
+            && request.resource.data.keys().hasOnly(['dates', 'voteDates', 'votePlaces', 'hidden', 'updatedAt'])
+            && dateList(request.resource.data.dates)
+            && dateList(request.resource.data.voteDates)
+            && isList(request.resource.data.votePlaces, 100)
+            && request.resource.data.hidden == (resource == null ? false : resource.data.hidden)
+            && request.resource.data.updatedAt == request.time;
+          // Hosts hide or show someone for this meetup.
+          allow update: if isHost(roomId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hidden'])
+            && request.resource.data.hidden is bool;
+          allow delete: if isHost(roomId);
+        }
+
+        match /places/{placeId} {
+          allow read: if isMember(roomId) || isAdmin();
+          allow create: if isMember(roomId) && isOpen()
+            && request.resource.data.keys().hasOnly(['title', 'mapsUrl', 'gPlaceId', 'address', 'note', 'pid', 'createdAt'])
+            && str(request.resource.data.title, 1, 80)
+            && str(request.resource.data.mapsUrl, 0, 500)
+            && (request.resource.data.mapsUrl == '' || request.resource.data.mapsUrl.matches('^https://.+'))
+            && str(request.resource.data.gPlaceId, 0, 300)
+            && str(request.resource.data.address, 0, 200)
+            && str(request.resource.data.note, 0, 300)
+            && request.resource.data.pid == member(roomId).pid
+            && request.resource.data.createdAt == request.time;
+          allow update: if false;
+          allow delete: if isMember(roomId) && (resource.data.pid == member(roomId).pid || isHost(roomId));
+        }
+
+        // Random draws: append-only evidence; the same batch bumps meetup.drawCount.<kind> by 1 (max 3).
+        match /draws/{drawId} {
+          allow read: if isMember(roomId) || isAdmin();
+          allow create: if isHost(roomId) && isOpen()
+            && request.resource.data.keys().hasOnly(['kind', 'candidates', 'result', 'n', 'pid', 'at'])
+            && request.resource.data.kind in ['date', 'place']
+            && request.resource.data.candidates is list
+            && request.resource.data.candidates.size() >= 2 && request.resource.data.candidates.size() <= 60
+            && request.resource.data.result in request.resource.data.candidates
+            && request.resource.data.pid == member(roomId).pid
+            && request.resource.data.at == request.time
+            && request.resource.data.n == meetupData().drawCount[request.resource.data.kind] + 1
+            && request.resource.data.n == getAfter(docPath('rooms/' + roomId + '/meetups/' + meetId)).data.drawCount[request.resource.data.kind];
+          allow update, delete: if false;
+        }
+      }
     }
 
     match /{document=**} {

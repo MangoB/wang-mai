@@ -61,9 +61,9 @@ async function claimInvite(db, uid, code = GUEST_CODE) {
   return b.commit();
 }
 
-async function createMeetup(db, id = 'm1') {
+async function createMeetup(db, id = 'm1', by = 'owner') {
   return setDoc(doc(db, 'rooms', ROOM, 'meetups', id), {
-    title: 'ข้าวเย็น', status: 'open', result: null, drawCount: { date: 0, place: 0 }, createdBy: 'owner', createdAt: serverTimestamp(),
+    title: 'ข้าวเย็น', status: 'open', result: null, drawCount: { date: 0, place: 0 }, createdBy: by, createdAt: serverTimestamp(),
   });
 }
 
@@ -185,11 +185,54 @@ test('nobody can change the owner; only the owner promotes co-hosts', async () =
 
 // ------------------------------------------------------------------ meetups
 
-test('only hosts create meetups', async () => {
+test('gang members start meetups in their own name; meetup-only guests cannot', async () => {
   await createRoom(google('owner'), 'owner');
   await joinAsMember(google('nat'), 'nat');
-  await assertFails(createMeetup(google('nat')));
-  await assertSucceeds(createMeetup(google('owner')));
+  await assertFails(createMeetup(google('nat'), 'm1', 'owner'));
+  await assertSucceeds(createMeetup(google('nat'), 'm1', 'nat'));
+  await assertSucceeds(createMeetup(google('owner'), 'm2'));
+
+  await createInvite(google('owner'), 'owner');
+  await claimInvite(guest('mos'), 'mos');
+  await updateDoc(doc(google('owner'), 'rooms', ROOM, 'members', 'mos'), { meetId: 'm1' });
+  await assertFails(createMeetup(guest('mos'), 'm3', 'pid_mos_000000000000000'));
+});
+
+test('the meetup creator runs their own meetup only; hosts run every meetup', async () => {
+  await createRoom(google('owner'), 'owner');
+  await joinAsMember(google('nat'), 'nat');
+  await joinAsMember(google('pim'), 'pim');
+  await createMeetup(google('nat'), 'mine', 'nat');
+  await createMeetup(google('owner'), 'theirs');
+  const at = (db, id) => doc(db, 'rooms', ROOM, 'meetups', id);
+  const decided = { date: '2026-11-28', placeId: '', placeTitle: '', placeUrl: '' };
+
+  await assertSucceeds(updateDoc(at(google('nat'), 'mine'), { title: 'ข้าวเย็นปลายปี', result: decided }));
+  await assertSucceeds(updateDoc(at(google('nat'), 'mine'), { status: 'done' }));
+  await assertSucceeds(updateDoc(at(google('owner'), 'mine'), { status: 'open' }));
+  await assertFails(updateDoc(at(google('nat'), 'theirs'), { title: 'ของฉัน' }));
+  await assertFails(updateDoc(at(google('pim'), 'mine'), { status: 'done' }));
+  await assertFails(updateDoc(at(google('nat'), 'mine'), { result: { ...decided, extra: 1 } }));
+
+  await setDoc(doc(google('pim'), 'rooms', ROOM, 'meetups', 'mine', 'avail', 'pim'),
+    { dates: '2026-11-28', voteDates: '', votePlaces: [], hidden: false, updatedAt: serverTimestamp() });
+  await assertSucceeds(updateDoc(doc(google('nat'), 'rooms', ROOM, 'meetups', 'mine', 'avail', 'pim'), { hidden: true }));
+  // Marking someone who has not entered anything yet creates an empty, hidden entry and nothing else.
+  const owner = doc(google('nat'), 'rooms', ROOM, 'meetups', 'mine', 'avail', 'owner');
+  await assertFails(setDoc(owner, { dates: '2026-11-28', voteDates: '', votePlaces: [], hidden: true, updatedAt: serverTimestamp() }));
+  await assertSucceeds(setDoc(owner, { dates: '', voteDates: '', votePlaces: [], hidden: true, updatedAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(google('pim'), 'rooms', ROOM, 'meetups', 'mine', 'avail', 'nat'), { dates: '', voteDates: '', votePlaces: [], hidden: true, updatedAt: serverTimestamp() }));
+
+  // Guests of their own meetup, but not of someone else's, and not into the whole gang.
+  const inv = (code, meetId) => setDoc(doc(google('nat'), 'rooms', ROOM, 'invites', code), {
+    name: 'ต้น', color: 3, pid: 'pid_ton_000000000000000', claimedBy: null, createdBy: 'nat', createdAt: serverTimestamp(), ...(meetId ? { meetId } : {}),
+  });
+  await assertSucceeds(inv('AAAAAAAA', 'mine'));
+  await assertFails(inv('BBBBBBBB', 'theirs'));
+  await assertFails(inv('CCCCCCCC', null));
+
+  await assertFails(deleteDoc(at(google('pim'), 'mine')));
+  await assertSucceeds(deleteDoc(at(google('nat'), 'mine')));
 });
 
 test('availability: own pid only, real dates only', async () => {
@@ -204,7 +247,7 @@ test('availability: own pid only, real dates only', async () => {
   await assertFails(setDoc(doc(db, 'rooms', ROOM, 'meetups', 'm1', 'avail', 'nat'), { ...ok, hidden: true }));
 });
 
-test('draws: host only, append-only, max 3 per kind', async () => {
+test('draws: whoever runs the meetup, append-only, max 3 per kind', async () => {
   await createRoom(google('owner'), 'owner');
   await joinAsMember(google('nat'), 'nat');
   await createMeetup(google('owner'));
@@ -249,11 +292,20 @@ test('deleting a room closes its meetups to former members', async () => {
   await assertFails(getDoc(doc(google('nat'), 'rooms', ROOM, 'meetups', 'm1')));
 });
 
-test('hosts rename the room and its meetups; participants cannot', async () => {
+test('hosts rename the gang (and its link name) and its meetups; participants cannot', async () => {
   await createRoom(google('owner'), 'owner');
   await joinAsMember(google('nat'), 'nat');
   await createMeetup(google('owner'), 'm1');
-  await assertSucceeds(updateDoc(doc(google('owner'), 'rooms', ROOM), { name: 'แก๊งเรา' }));
+  const rename = (db, name) => {
+    const b = writeBatch(db);
+    b.update(doc(db, 'rooms', ROOM), { name });
+    b.update(doc(db, 'joinCodes', CODE), { name });
+    return b.commit();
+  };
+  await assertSucceeds(rename(google('owner'), 'แก๊งเรา'));
+  await assertFails(rename(google('nat'), 'ของฉัน'));
+  await assertFails(updateDoc(doc(google('owner'), 'joinCodes', CODE), { roomId: 'elsewhere' }));
+  await assertSucceeds(getDoc(doc(google('stranger'), 'joinCodes', CODE)));
   await assertSucceeds(updateDoc(doc(google('owner'), 'rooms', ROOM, 'meetups', 'm1'), { title: 'นัดแรก' }));
   await assertFails(updateDoc(doc(google('owner'), 'rooms', ROOM), { name: 'x'.repeat(41) }));
   await assertFails(updateDoc(doc(google('nat'), 'rooms', ROOM), { name: 'ของฉัน' }));

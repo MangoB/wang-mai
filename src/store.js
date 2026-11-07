@@ -1,4 +1,4 @@
-// v2 state and every Firestore/Auth call. Views import from here; they never touch Firebase directly.
+// App state and every Firestore/Auth call. Views import from here; they never touch Firebase directly.
 import { reactive, ref, computed, watch } from 'vue';
 import {
   doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, writeBatch,
@@ -10,7 +10,7 @@ import {
 import { db, auth } from './firebase.js';
 import { pickColor } from './lib/palette.js';
 import { newRoomCode, newGuestCode, newPid, isRoomCode, isGuestCode } from './lib/codes.js';
-import { keyOfDate, startOfToday } from '../../src/lib/dates.js';
+import { keyOfDate, startOfToday } from './lib/dates.js';
 
 export const today = startOfToday();
 export const todayKey = keyOfDate(today);
@@ -29,7 +29,7 @@ export function say(text, kind = '') {
 export function explain(e) {
   console.error(e);
   const code = (e && e.code) || '';
-  if (code.includes('permission-denied')) return 'ทำไม่ได้: คุณไม่มีสิทธิ์ หรือถูกนำออกจากห้องนี้แล้ว';
+  if (code.includes('permission-denied')) return 'ทำไม่ได้: คุณไม่มีสิทธิ์ หรือถูกนำออกจากแก๊งนี้แล้ว';
   if (code.includes('unavailable')) return 'เน็ตหลุด ระบบจะบันทึกให้เมื่อกลับมาออนไลน์';
   if (code.includes('resource-exhausted')) return 'ใช้งานเกินโควตาฟรีของวันนี้แล้ว ลองใหม่พรุ่งนี้';
   if (code.includes('popup-closed-by-user') || code.includes('cancelled-popup-request')) return 'ยกเลิกการเข้าสู่ระบบแล้ว';
@@ -38,7 +38,7 @@ export function explain(e) {
   return e && e.message && !code ? e.message : 'มีบางอย่างผิดพลาด ลองอีกครั้ง';
 }
 
-// ------------------------------------------------------------------ local memory (guest rooms)
+// ------------------------------------------------------------------ local memory (gangs joined without Google)
 const LS_KEY = 'wangmai.v2.rooms';
 function readLocalRooms() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; }
@@ -53,6 +53,13 @@ function rememberRoom(roomId, name, as) {
   localRooms.value = list.slice(0, 20);
   writeLocalRooms(localRooms.value);
 }
+const PENDING_KEY = 'wangmai.pendingGang';
+export const pendingGang = ref((() => { try { return JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); } catch { return null; } })());
+export function setPendingGang(v) {
+  pendingGang.value = v;
+  try { if (v) localStorage.setItem(PENDING_KEY, JSON.stringify(v)); else localStorage.removeItem(PENDING_KEY); } catch { /* private mode */ }
+}
+
 export function forgetRoom(roomId) {
   localRooms.value = localRooms.value.filter((r) => r.roomId !== roomId);
   writeLocalRooms(localRooms.value);
@@ -111,7 +118,7 @@ export async function createRoom(name) {
     const b = writeBatch(db);
     b.update(doc(db, 'users', uid), { roomCount: increment(1), rooms: arrayUnion(roomRef.id) });
     b.set(roomRef, { name, ownerUid: uid, joinCode: code, createdAt: serverTimestamp() });
-    b.set(doc(db, 'joinCodes', code), { roomId: roomRef.id });
+    b.set(doc(db, 'joinCodes', code), { roomId: roomRef.id, name });
     b.set(doc(db, 'rooms', roomRef.id, 'members', uid), {
       name: p.name, color: p.color, kind: 'member', role: 'owner', status: 'active', pid: uid, joinCode: code, joinedAt: serverTimestamp(),
     });
@@ -131,11 +138,27 @@ async function roomIdForCode(code) {
   return s.exists() ? s.data().roomId : null;
 }
 
+/** What a gang link points to: { roomId, name } or null. Needs any sign-in. */
+export async function peekGangLink(code) {
+  await ensureSignedIn();
+  const s = await getDoc(doc(db, 'joinCodes', code));
+  return s.exists() ? { roomId: s.data().roomId, name: s.data().name || '' } : null;
+}
+
+/** Am I already in this gang? */
+export async function isInGang(roomId) {
+  if (!session.user) return false;
+  try {
+    const s = await getDoc(doc(db, 'rooms', roomId, 'members', session.user.uid));
+    return s.exists() && s.data().status === 'active';
+  } catch { return false; }
+}
+
 /** Google member joins with a room code. Returns roomId or throws with a readable message. */
 export async function joinWithRoomCode(code) {
-  if (!isRoomCode(code)) throw new Error('รหัสห้องต้องมี 6 ตัว');
+  if (!isRoomCode(code)) throw new Error('รหัสแก๊งต้องมี 6 ตัว');
   const roomId = await roomIdForCode(code);
-  if (!roomId) throw new Error('ไม่พบห้องนี้ ลองตรวจรหัสอีกครั้ง');
+  if (!roomId) throw new Error('ไม่พบแก๊งนี้ ลองตรวจรหัสอีกครั้ง');
   const uid = session.user.uid;
   const mine = doc(db, 'rooms', roomId, 'members', uid);
   let already = false;
@@ -151,7 +174,7 @@ export async function joinWithRoomCode(code) {
         .map((d) => d.data()).filter((m) => m.status === 'active' && m.pid !== uid);
       const color = pickColor(p.color, others.map((m) => m.color));
       if (color !== p.color) await updateDoc(mine, { color });
-    } catch { /* joined anyway; the colour can be changed on the members page */ }
+    } catch { /* joined anyway; the colour can be changed in จัดการแก๊ง */ }
   }
   await updateDoc(doc(db, 'users', uid), { rooms: arrayUnion(roomId) });
   return roomId;
@@ -159,13 +182,13 @@ export async function joinWithRoomCode(code) {
 
 /** Guest (or anyone holding a personal code) claims their invite. Returns roomId. */
 export async function joinWithGuestCode(roomCode, guestCode) {
-  if (!isRoomCode(roomCode)) throw new Error('รหัสห้องต้องมี 6 ตัว');
+  if (!isRoomCode(roomCode)) throw new Error('รหัสแก๊งต้องมี 6 ตัว');
   if (!isGuestCode(guestCode)) throw new Error('รหัสส่วนตัวต้องมี 8 ตัว');
   const user = await ensureSignedIn();
   const roomId = await roomIdForCode(roomCode);
-  if (!roomId) throw new Error('ไม่พบห้องนี้ ลองตรวจรหัสอีกครั้ง');
+  if (!roomId) throw new Error('ไม่พบแก๊งนี้ ลองตรวจรหัสอีกครั้ง');
   const invSnap = await getDoc(doc(db, 'rooms', roomId, 'invites', guestCode));
-  if (!invSnap.exists()) throw new Error('รหัสส่วนตัวนี้ใช้ไม่ได้ ขอรหัสใหม่จากเจ้าของห้อง');
+  if (!invSnap.exists()) throw new Error('ลิงก์ส่วนตัวนี้ใช้ไม่ได้แล้ว ขอลิงก์ใหม่จากคนที่ชวน');
   const inv = invSnap.data();
   const inviteRef = doc(db, 'rooms', roomId, 'invites', guestCode);
   const mine = doc(db, 'rooms', roomId, 'members', user.uid);
@@ -182,7 +205,11 @@ export async function joinWithGuestCode(roomCode, guestCode) {
     await updateDoc(inviteRef, { claimedBy: user.uid });
   }
   rememberRoom(roomId, '', inv.name);
-  return roomId;
+  // Signed in with Google: keep this gang (or meetup) in the account's history too.
+  if (!user.isAnonymous && session.profile) {
+    try { await updateDoc(doc(db, 'users', user.uid), { rooms: arrayUnion(roomId) }); } catch { /* history only */ }
+  }
+  return { roomId, meetId: inv.meetId || '' };
 }
 
 // ------------------------------------------------------------------ current room (live)
@@ -254,6 +281,9 @@ export const myMember = computed(() => {
 });
 export const isHost = computed(() => !!myMember.value && ['owner', 'cohost'].includes(myMember.value.role) && myMember.value.status === 'active');
 export const isOwner = computed(() => !!myMember.value && myMember.value.role === 'owner');
+/** In the gang itself (not only a guest of one meetup). */
+export const inGang = computed(() => !!myMember.value && myMember.value.status === 'active' && !myMember.value.meetId);
+export const ROLE_LABEL = { owner: 'ผู้สร้างแก๊ง', cohost: 'ผู้ดูแลแก๊ง', participant: 'สมาชิกแก๊ง' };
 
 /** One entry per person (pid). A guest who moved devices keeps only the newest member doc. */
 export const people = computed(() => {
@@ -270,15 +300,22 @@ export const people = computed(() => {
 
 // ------------------------------------------------------------------ room admin
 export async function renameRoom(name) {
-  await updateDoc(doc(db, 'rooms', room.id), { name });
+  const b = writeBatch(db);
+  b.update(doc(db, 'rooms', room.id), { name });
+  b.update(doc(db, 'joinCodes', room.data.joinCode), { name });
+  await b.commit();
 }
+
+export const gangLink = (code) => location.origin + location.pathname + '#g-' + code;
+export const guestLink = (code) => location.origin + location.pathname + '#j-' + room.data.joinCode + '-' + code;
+export const meetupLink = (meetId) => location.origin + location.pathname + '#m-' + room.id + '-' + meetId;
 
 export async function rotateRoomCode() {
   const old = room.data.joinCode;
   for (let attempt = 0; attempt < 3; attempt++) {
     const code = newRoomCode();
     const b = writeBatch(db);
-    b.set(doc(db, 'joinCodes', code), { roomId: room.id });
+    b.set(doc(db, 'joinCodes', code), { roomId: room.id, name: room.data.name });
     b.update(doc(db, 'rooms', room.id), { joinCode: code });
     b.delete(doc(db, 'joinCodes', old));
     try { await b.commit(); return code; } catch (e) { if (attempt === 2) throw e; }
@@ -343,7 +380,7 @@ export async function unblockMember(m) {
   await updateDoc(doc(db, 'rooms', room.id, 'members', m.uid), { status: 'active' });
 }
 
-/** Remove: a Google member can rejoin with the room code; for guests this is the same as revoking their code. */
+/** Remove: a Google member can rejoin with the gang link; for guests this is the same as revoking their code. */
 export async function removeMember(m) {
   const b = writeBatch(db);
   b.delete(doc(db, 'rooms', room.id, 'members', m.uid));
@@ -367,9 +404,11 @@ export async function deleteRoom() {
 }
 
 // ------------------------------------------------------------------ meetups
-export async function createMeetup(title) {
-  const r = await addDoc(collection(db, 'rooms', room.id, 'meetups'), {
-    title, status: 'open', result: null, drawCount: { date: 0, place: 0 }, createdBy: session.user.uid, createdAt: serverTimestamp(),
+/** Any gang member starts a meetup ("ถามว่าว่างไหม?") and runs it. */
+export async function createMeetup(roomId, title) {
+  const me = (await getDoc(doc(db, 'rooms', roomId, 'members', session.user.uid))).data();
+  const r = await addDoc(collection(db, 'rooms', roomId, 'meetups'), {
+    title, status: 'open', result: null, drawCount: { date: 0, place: 0 }, createdBy: me.pid, createdAt: serverTimestamp(),
   });
   return r.id;
 }
@@ -410,7 +449,13 @@ export function openMeetup(roomId, meetId) {
 // Re-read my saved entry once I know which person I am in this room.
 watch(() => myMember.value && myMember.value.pid, () => { if (!dirty && !saving) syncMine(); });
 
+/** Set right after "ถามว่าว่างไหม?" creates a meetup, so its page opens "ส่งให้เพื่อน". */
+export const askedMeetup = ref('');
+
 export const isOpen = computed(() => !!meetup.data && meetup.data.status === 'open');
+/** Runs this meetup: its creator, or the gang's owner and co-hosts. */
+export const canRun = computed(() => isHost.value
+  || (inGang.value && !!meetup.data && meetup.data.createdBy === myMember.value.pid));
 
 // ----- my availability: edited locally, saved as one coalesced write -----
 const split = (s) => (s ? s.split(',') : []);
@@ -457,8 +502,8 @@ async function flush() {
 window.addEventListener('pagehide', flushNow);
 
 function canEdit() {
-  if (!isOpen.value) { say('นัดนี้สรุปแล้ว แก้ไม่ได้'); return false; }
-  if (!myMember.value) { say('ต้องเข้าห้องก่อน'); return false; }
+  if (!isOpen.value) { say('นัดนี้ปิดแล้ว แก้ไม่ได้'); return false; }
+  if (!myMember.value) { say('ต้องเข้าแก๊งก่อน'); return false; }
   return true;
 }
 
@@ -558,12 +603,17 @@ export async function removePlace(pl) {
   if (i >= 0) { mine.votePlaces.splice(i, 1); queueSave(); }
 }
 
-// ----- hide someone for this meetup (hosts) -----
+/** People in this meetup who have not marked any free day yet. */
+export const notYet = computed(() => meetPeople.value.filter((p) => !availFor(p.pid).dates.length));
+
+// ----- hide someone for this meetup (whoever runs it) -----
 export async function setHidden(pid, hidden) {
-  await updateDoc(doc(db, 'rooms', room.id, 'meetups', meetup.id, 'avail', pid), { hidden });
+  const ref_ = doc(db, 'rooms', room.id, 'meetups', meetup.id, 'avail', pid);
+  if (meetup.avail.some((a) => a.pid === pid)) await updateDoc(ref_, { hidden });
+  else if (hidden) await setDoc(ref_, { dates: '', voteDates: '', votePlaces: [], hidden: true, updatedAt: serverTimestamp() });
 }
 
-// ----- random draw (hosts): evidence is append-only, max 3 per kind -----
+// ----- random draw (whoever runs the meetup): evidence is append-only, max 3 per kind -----
 export async function draw(kind, candidates) {
   const used = meetup.data.drawCount[kind] || 0;
   if (used >= 3) throw new Error('สุ่มครบ 3 ครั้งแล้ว');
@@ -580,36 +630,77 @@ export async function draw(kind, candidates) {
   return result;
 }
 
-// ----- conclude / reopen (hosts) -----
-export async function concludeMeetup({ date, placeId, via }) {
+// ----- decide the day and the place separately, then close (whoever runs the meetup) -----
+const meetRef = () => doc(db, 'rooms', room.id, 'meetups', meetup.id);
+const currentResult = () => ({ date: '', placeId: '', placeTitle: '', placeUrl: '', ...(meetup.data.result || {}) });
+
+/** date '' clears the decision. */
+export async function decideDate(date) {
+  await updateDoc(meetRef(), { result: { ...currentResult(), date: date || '' } });
+}
+
+/** placeId '' clears the decision. The title and link are copied so history survives a deleted place. */
+export async function decidePlace(placeId) {
   const pl = meetup.places.find((p) => p.id === placeId);
-  await updateDoc(doc(db, 'rooms', room.id, 'meetups', meetup.id), {
-    status: 'done',
-    result: { date: date || '', placeId: placeId || '', placeTitle: pl ? pl.title : '', placeUrl: pl ? pl.mapsUrl : '', via },
+  await updateDoc(meetRef(), {
+    result: { ...currentResult(), placeId: pl ? pl.id : '', placeTitle: pl ? pl.title : '', placeUrl: pl ? pl.mapsUrl : '' },
   });
 }
 
+export async function closeMeetup() {
+  await updateDoc(meetRef(), { status: 'done' });
+}
+
 export async function reopenMeetup() {
-  await updateDoc(doc(db, 'rooms', room.id, 'meetups', meetup.id), { status: 'open', result: null });
+  await updateDoc(meetRef(), { status: 'open' });
+}
+
+export async function deleteMeetup() {
+  await deleteDoc(meetRef());
 }
 
 export async function renameMeetup(title) {
   await updateDoc(doc(db, 'rooms', room.id, 'meetups', meetup.id), { title });
 }
 
-// ------------------------------------------------------------------ member's room list
-export const myRooms = reactive({ list: [], loading: false });
-export async function loadMyRooms() {
-  const ids = (session.profile && session.profile.rooms) || [];
-  myRooms.loading = true;
-  const out = [];
-  for (const id of ids) {
+// ------------------------------------------------------------------ home: my gangs and open meetups
+export const home = reactive({ gangs: [], loading: false, loaded: false });
+
+/**
+ * Every gang I am in (Google: from my account, otherwise from this browser), with my role,
+ * the people in it and its open meetups. A meetup-only guest sees just that meetup.
+ */
+export async function loadHome() {
+  if (!session.user) return;
+  const ids = [...((isGoogle.value && session.profile && session.profile.rooms) || []), ...localRooms.value.map((r) => r.roomId)];
+  home.loading = true;
+  const uid = session.user.uid;
+  const gangs = await Promise.all([...new Set(ids)].map(async (id) => {
     try {
-      const s = await getDoc(doc(db, 'rooms', id));
-      if (s.exists()) out.push({ id, ...s.data() });
-    } catch { /* removed or blocked: skip */ }
-  }
-  myRooms.list = out;
-  myRooms.loading = false;
+      const [rs, ms] = await Promise.all([getDoc(doc(db, 'rooms', id)), getDocs(collection(db, 'rooms', id, 'members'))]);
+      if (!rs.exists()) return null;
+      const members = ms.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((m) => m.status === 'active');
+      const me = members.find((m) => m.uid === uid);
+      if (!me) return null;
+      let meetups;
+      if (me.meetId) {
+        const s = await getDoc(doc(db, 'rooms', id, 'meetups', me.meetId));
+        meetups = s.exists() ? [{ id: s.id, ...s.data() }] : [];
+      } else {
+        const q = await getDocs(query(collection(db, 'rooms', id, 'meetups'), orderBy('createdAt', 'desc')));
+        meetups = q.docs.map((d) => ({ id: d.id, ...d.data() }));
+      }
+      const gang = members.filter((m) => !m.meetId);
+      return { id, name: rs.data().name, role: me.role, guestOf: me.meetId || '', me, gang, meetups };
+    } catch { return null; } // removed, blocked or deleted: skip
+  }));
+  home.gangs = gangs.filter(Boolean);
+  home.loading = false;
+  home.loaded = true;
 }
+
+/** Open meetups across all my gangs, newest first. */
+export const recentMeetups = computed(() => home.gangs
+  .flatMap((g) => g.meetups.filter((m) => m.status === 'open').map((m) => ({ ...m, gangId: g.id, gangName: g.name })))
+  .sort((a, b) => ((b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0) - (a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0))));
 

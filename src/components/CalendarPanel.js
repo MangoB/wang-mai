@@ -1,7 +1,7 @@
 import { reactive, ref, computed } from 'vue';
 import {
   WD, keyOfDate, parseKey, datesMatching, fmtShort, fmtLong, monthTitle,
-} from '../../../src/lib/dates.js';
+} from '../lib/dates.js';
 import {
   today, todayKey, mine, meetPeople, myMember, freeByDate, goldDates, topDates, isOpen, toggleDate, setDates, toggleVote, say,
 } from '../store.js';
@@ -91,7 +91,7 @@ export default {
     }
     function apply(add) {
       const n = setDates(quickDates.value, add);
-      say(add ? 'ลงว่างเพิ่ม ' + n + ' วัน' : 'เอาออก ' + n + ' วัน');
+      say(add ? 'ลงวันว่างเพิ่ม ' + n + ' วัน' : 'เอาออก ' + n + ' วัน');
       if (n && quickDates.value.length) { const d = parseKey(quickDates.value[0]); view.y = d.getFullYear(); view.m = d.getMonth(); }
     }
 
@@ -176,7 +176,7 @@ export default {
         </div>
         <p class="small muted" style="margin: 0">{{ quickSummary }}</p>
         <div class="row">
-          <button class="btn primary" @click="apply(true)" :disabled="!quickDates.length">ลงว่าง</button>
+          <button class="btn primary" @click="apply(true)" :disabled="!quickDates.length">ลงวันว่าง</button>
           <button class="btn" @click="apply(false)" :disabled="!quickDates.length">เอาออก</button>
         </div>
       </template>

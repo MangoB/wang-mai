@@ -1,7 +1,7 @@
 import { reactive, ref } from 'vue';
-import { parseMap, embedUrl, cleanUrl } from '../../../src/lib/maps.js';
+import { parseMap, embedUrl, cleanUrl } from '../lib/maps.js';
 import {
-  placesRanked, mine, myMember, isHost, isOpen, toggleVote, addPlace, removePlace, personByPid, meetPeople, say, explain,
+  placesRanked, mine, myMember, canRun, isOpen, toggleVote, addPlace, removePlace, personByPid, meetPeople, say, explain,
 } from '../store.js';
 import { chipStyle } from '../lib/palette.js';
 
@@ -36,7 +36,7 @@ export default {
       try { await removePlace(pl); say('ลบ ' + pl.title + ' แล้ว'); } catch (e) { say(explain(e), 'error'); }
     }
 
-    const canRemove = (pl) => isOpen.value && myMember.value && (pl.pid === myMember.value.pid || isHost.value);
+    const canRemove = (pl) => isOpen.value && myMember.value && (pl.pid === myMember.value.pid || canRun.value);
     const byName = (pid) => (personByPid.value.get(pid) || {}).name || 'ใครสักคน';
 
     return {
@@ -46,8 +46,8 @@ export default {
   template: /* html */ `
   <section class="stack" style="gap: 12px">
     <form v-if="isOpen" class="sheet" @submit.prevent="submit">
-      <h2>เสนอที่นัด</h2>
-      <div class="field"><label for="pt">ชื่อที่</label><input id="pt" class="input" v-model="form.title" maxlength="80" placeholder="เช่น หมูกระทะ ลาดพร้าว 71"></div>
+      <h2>เสนอสถานที่</h2>
+      <div class="field"><label for="pt">ชื่อสถานที่</label><input id="pt" class="input" v-model="form.title" maxlength="80" placeholder="เช่น หมูกระทะ ลาดพร้าว 71"></div>
       <div class="field"><label for="pu">ลิงก์ Google Maps</label><input id="pu" class="input" v-model="form.url" maxlength="500" inputmode="url" placeholder="https://maps.app.goo.gl/…"></div>
       <div class="field"><label for="pn">โน้ต <span class="muted small">(ไม่บังคับ)</span></label><textarea id="pn" class="input" v-model="form.note" maxlength="300" placeholder="ที่จอดรถ ราคาประมาณ ต้องจองก่อนไหม"></textarea></div>
       <p class="err" v-if="error">{{ error }}</p>
@@ -80,6 +80,6 @@ export default {
         </div>
       </article>
     </div>
-    <p class="muted small" v-else>ยังไม่มีสถานที่<span v-if="isOpen"> เพิ่มที่แรกจากฟอร์มด้านบน</span></p>
+    <p class="muted small" v-else>ยังไม่มีสถานที่<span v-if="isOpen"> เพิ่มสถานที่แรกจากฟอร์มด้านบน</span></p>
   </section>`,
 };

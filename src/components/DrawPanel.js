@@ -1,14 +1,14 @@
 import { ref, computed, watch } from 'vue';
-import { fmtLong, fmtShort } from '../../../src/lib/dates.js';
+import { fmtLong, fmtShort } from '../lib/dates.js';
 import {
-  meetup, topDates, goldDates, placesRanked, isHost, isOpen, draw, personByPid, say, explain,
+  meetup, topDates, goldDates, placesRanked, canRun, isOpen, draw, personByPid, say, explain,
 } from '../store.js';
 
 const CROWN = 'M3 18h18l-1.6-10-4.9 4.2L12 5l-2.5 7.2L4.6 8z';
 
 export default {
   name: 'DrawPanel',
-  emits: ['conclude'],
+  emits: ['decide'],
   setup(props, { emit }) {
     const kind = ref('date');
     const picked = ref([]);
@@ -28,7 +28,7 @@ export default {
     const toggle = (id) => { const i = picked.value.indexOf(id); if (i >= 0) picked.value.splice(i, 1); else picked.value.push(id); };
     const used = computed(() => (meetup.data && meetup.data.drawCount ? meetup.data.drawCount[kind.value] || 0 : 0));
     const left = computed(() => 3 - used.value);
-    const canDraw = computed(() => isHost.value && isOpen.value && left.value > 0 && picked.value.length >= 2);
+    const canDraw = computed(() => canRun.value && isOpen.value && left.value > 0 && picked.value.length >= 2);
     const busy = ref(false);
 
     async function run() {
@@ -43,7 +43,7 @@ export default {
     const labelOf = (k, id) => {
       if (k === 'date') return fmtShort(id);
       const p = meetup.places.find((x) => x.id === id);
-      return p ? p.title : 'ที่ที่ถูกลบไปแล้ว';
+      return p ? p.title : 'สถานที่ที่ถูกลบไปแล้ว';
     };
     const history = computed(() => meetup.draws.filter((d) => d.kind === kind.value));
     const latest = computed(() => history.value[0] || null);
@@ -52,11 +52,11 @@ export default {
 
     function useLatest() {
       if (!latest.value) return;
-      emit('conclude', kind.value === 'date' ? { date: latest.value.result, via: 'draw' } : { placeId: latest.value.result, via: 'draw' });
+      emit('decide', { kind: kind.value, value: latest.value.result });
     }
 
     return {
-      CROWN, kind, options, picked, toggle, used, left, canDraw, busy, run, history, latest, labelOf, byName, when, isHost, isOpen, useLatest, fmtLong,
+      CROWN, kind, options, picked, toggle, used, left, canDraw, busy, run, history, latest, labelOf, byName, when, canRun, isOpen, useLatest, fmtLong,
     };
   },
   template: /* html */ `
@@ -64,12 +64,12 @@ export default {
     <div class="row between">
       <div class="seg" role="tablist" aria-label="สุ่มอะไร" style="min-width: 200px">
         <button type="button" role="tab" :aria-selected="kind === 'date'" @click="kind = 'date'">วัน</button>
-        <button type="button" role="tab" :aria-selected="kind === 'place'" @click="kind = 'place'">ที่นัด</button>
+        <button type="button" role="tab" :aria-selected="kind === 'place'" @click="kind = 'place'">สถานที่</button>
       </div>
       <span class="tag" :style="left === 0 ? 'background: var(--ink); color: var(--on-ink)' : ''">{{ left > 0 ? 'เหลือ ' + left + ' ครั้ง' : 'ครบ 3 ครั้งแล้ว' }}</span>
     </div>
 
-    <div class="sheet" v-if="isHost && isOpen">
+    <div class="sheet" v-if="canRun && isOpen">
       <div class="row between"><h2>สุ่มจาก</h2><span class="small muted">เลือกไว้ {{ picked.length }}</span></div>
       <div class="list" v-if="options.length">
         <button v-for="o in options" :key="o.id" type="button" role="checkbox" :aria-checked="picked.includes(o.id)" @click="toggle(o.id)"
@@ -86,7 +86,7 @@ export default {
         {{ left === 0 ? 'สุ่มครบแล้ว เลือกเองได้เลย' : (picked.length < 2 ? 'เลือกอย่างน้อย 2 ตัวเลือก' : 'สุ่มเลย') }}
       </button>
     </div>
-    <p class="small muted" v-else-if="isOpen">เจ้าของห้องและ co-host เป็นคนกดสุ่ม ทุกคนเห็นผลและประวัติเหมือนกัน</p>
+    <p class="small muted" v-else-if="isOpen">ผู้สร้างนัดและผู้ดูแลแก๊งเป็นคนกดสุ่ม ทุกคนเห็นผลและประวัติเหมือนกัน</p>
 
     <div v-if="latest" class="ticket" style="background: var(--ink); color: var(--on-ink); border-radius: 16px">
       <div style="padding: 16px 26px 12px">
@@ -96,13 +96,13 @@ export default {
       <div style="border-top: 2px dashed var(--on-ink-2); margin: 0 14px"></div>
       <div class="row between" style="padding: 12px 26px 16px">
         <span class="small" style="color: var(--on-ink-2)">โดย {{ byName(latest.pid) }} {{ when(latest) }}</span>
-        <button v-if="isHost && isOpen" class="btn sm" style="background: transparent; color: var(--gold-bright); border-color: var(--gold-bright)" @click="useLatest">ใช้ผลนี้สรุปนัด</button>
+        <button v-if="canRun && isOpen" class="btn sm" style="background: transparent; color: var(--gold-bright); border-color: var(--gold-bright)" @click="useLatest">{{ kind === 'date' ? 'ใช้สรุปวัน' : 'ใช้สรุปสถานที่' }}</button>
       </div>
     </div>
 
     <div class="stack" v-if="history.length">
       <h2>หลักฐานการสุ่ม</h2>
-      <p class="small muted" style="margin: 0">บันทึกทุกครั้ง ลบหรือแก้ไม่ได้ แม้แต่เจ้าของห้อง</p>
+      <p class="small muted" style="margin: 0">บันทึกทุกครั้ง ลบหรือแก้ไม่ได้ แม้แต่ผู้สร้างแก๊ง</p>
       <div v-for="h in history" :key="h.id" class="item" style="flex-direction: column; align-items: stretch; gap: 4px">
         <div class="row between small muted"><span>ครั้งที่ {{ h.n }} โดย {{ byName(h.pid) }}</span><span>{{ when(h) }}</span></div>
         <div style="font-size: 14px">จาก {{ h.candidates.map((c) => labelOf(h.kind, c)).join(', ') }}</div>

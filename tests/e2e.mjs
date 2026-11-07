@@ -25,11 +25,11 @@ const env = await initializeTestEnvironment({
 });
 await env.clearFirestore();
 
-// Seed: a room with an owner, a guest invite and an open meetup where the owner is free on two days.
+// Seed: a gang with an owner, a personal link and an open meetup where the owner is free on two days.
 const now = Timestamp.now();
 await env.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore();
-  await setDoc(doc(db, 'joinCodes', ROOM_CODE), { roomId: ROOM });
+  await setDoc(doc(db, 'joinCodes', ROOM_CODE), { roomId: ROOM, name: 'แก๊งมหาลัย' });
   await setDoc(doc(db, 'rooms', ROOM), { name: 'แก๊งมหาลัย', ownerUid: 'owner', joinCode: ROOM_CODE, createdAt: now });
   await setDoc(doc(db, 'rooms', ROOM, 'members', 'owner'), {
     name: 'ณัฐ', color: 0, kind: 'member', role: 'owner', status: 'active', pid: 'owner', joinCode: ROOM_CODE, joinedAt: now,
@@ -61,20 +61,15 @@ const step = async (name, fn) => {
 };
 
 try {
-  await step('the old link points to v2', async () => {
-    await page.goto(BASE + '/');
-    await page.getByRole('link', { name: 'ไปที่ว่างไหม' }).waitFor();
-  });
-
-  await step('guest joins with an invite link', async () => {
-    await page.goto(BASE + '/v2/#j-' + ROOM_CODE + '-' + GUEST_CODE);
+  await step('guest joins with a personal link', async () => {
+    await page.goto(BASE + '/#j-' + ROOM_CODE + '-' + GUEST_CODE);
     await page.getByRole('heading', { name: 'แก๊งมหาลัย' }).waitFor({ timeout: 15000 });
   });
 
   await step('opens the meetup and marks a free day', async () => {
     await page.getByRole('link', { name: /ข้าวเย็นปลายปี/ }).click();
     await page.getByRole('heading', { name: 'ข้าวเย็นปลายปี' }).waitFor();
-    // Mark the same two days the owner is free on: both become gold tickets.
+    // Mark the same two days the owner is free on: both get the gold frame.
     for (const k of [keyAfter(2), keyAfter(3)]) {
       const [y, m, d] = k.split('-').map(Number);
       const cell = page.locator('button.day:not([disabled])', { hasText: new RegExp('^\\s*' + d + '\\b') }).first();
@@ -94,33 +89,52 @@ try {
   });
 
   await step('adds a place', async () => {
-    await page.getByRole('tab', { name: 'ที่นัด' }).click();
-    await page.getByLabel('ชื่อที่').fill('หมูกระทะริมคลอง');
+    await page.getByRole('tab', { name: 'สถานที่' }).click();
+    await page.getByLabel('ชื่อสถานที่').fill('หมูกระทะริมคลอง');
     await page.getByRole('button', { name: 'เพิ่มสถานที่' }).click();
     await page.getByRole('heading', { name: 'หมูกระทะริมคลอง' }).waitFor();
   });
 
-  await step('co-host draws a date and concludes', async () => {
+  await step('a gang member starts a meetup with ถามว่าว่างไหม? and runs it', async () => {
+    await page.goto(BASE + '/#r-' + ROOM);
+    await page.getByRole('button', { name: 'ถามว่าว่างไหม?' }).click();
+    await page.getByLabel('ชื่อนัด').fill('ทริปทะเล');
+    await page.getByRole('button', { name: 'ถามเลย' }).click();
+    await page.getByRole('heading', { name: 'ส่งให้เพื่อน' }).waitFor({ timeout: 10000 });
+    await page.getByText(/ว่างไหม\? 📅 ทริปทะเล/).waitFor();
+    await page.getByRole('button', { name: 'ปิด', exact: true }).click();
+    await page.getByRole('heading', { name: 'ทริปทะเล' }).waitFor();
+    await page.getByRole('button', { name: 'สรุปวัน', exact: true }).waitFor(); // the creator runs their own meetup
+  });
+
+  await step('co-host draws a date, decides the day, renames and closes', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       const db = ctx.firestore();
-      const members = ['rooms', ROOM, 'members'];
       // The guest's member doc id is their anonymous uid: promote whichever doc holds the guest pid.
       const inv = await getDoc(doc(db, 'rooms', ROOM, 'invites', GUEST_CODE));
-      await updateDoc(doc(db, ...members, inv.data().claimedBy), { role: 'cohost' });
+      await updateDoc(doc(db, 'rooms', ROOM, 'members', inv.data().claimedBy), { role: 'cohost' });
     });
+    await page.goto(BASE + '/#m-' + ROOM + '-' + MEET);
+    await page.getByRole('heading', { name: 'ข้าวเย็นปลายปี' }).waitFor();
     await page.getByRole('tab', { name: 'สุ่ม' }).click();
     await page.getByRole('button', { name: 'สุ่มเลย' }).click();
     await page.getByText(/ครั้งที่ 1 โดย ทราย/).waitFor({ timeout: 10000 });
-    await page.getByRole('button', { name: 'ใช้ผลนี้สรุปนัด' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'สรุปนัด' }).click();
-    await page.getByRole('button', { name: 'เปิดนัดอีกครั้ง' }).waitFor({ timeout: 10000 });
-  });
+    await page.getByRole('button', { name: 'ใช้สรุปวัน' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'สรุปวันนี้' }).click();
+    await page.getByRole('button', { name: 'สรุปสถานที่', exact: true }).waitFor({ timeout: 10000 });
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const s = await getDoc(doc(ctx.firestore(), 'rooms', ROOM, 'meetups', MEET));
+      assert.ok([keyAfter(2), keyAfter(3)].includes(s.data().result.date), 'decided day is one of the drawn candidates');
+      assert.equal(s.data().status, 'open');
+    });
 
-  await step('co-host renames the meetup', async () => {
     await page.getByRole('button', { name: 'แก้ชื่อนัด' }).click();
     await page.getByRole('textbox', { name: 'ชื่อนัด' }).fill('ข้าวเย็นส่งท้ายปี');
     await page.getByRole('button', { name: 'บันทึก', exact: true }).click();
     await page.getByRole('heading', { name: 'ข้าวเย็นส่งท้ายปี' }).waitFor({ timeout: 10000 });
+
+    await page.getByRole('button', { name: 'ปิดนัด', exact: true }).click();
+    await page.getByRole('button', { name: 'เปิดนัดอีกครั้ง' }).waitFor({ timeout: 10000 });
   });
 
   await step('no errors in the browser console', async () => {

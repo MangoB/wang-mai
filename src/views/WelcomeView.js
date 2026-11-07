@@ -3,7 +3,7 @@ import { joinWithGuestCode, signInGoogle, session, say, explain } from '../store
 import { cleanCode } from '../lib/codes.js';
 
 export default {
-  name: 'JoinView',
+  name: 'WelcomeView',
   props: { roomCode: String, guestCode: String },
   setup(props) {
     const room = ref(props.roomCode || '');
@@ -15,12 +15,12 @@ export default {
       error.value = '';
       const rc = cleanCode(room.value);
       const gc = cleanCode(guest.value);
-      if (!gc) { error.value = 'ไม่มีรหัสส่วนตัว? เข้าด้วย Google แล้วใส่รหัสห้องได้'; return; }
+      if (!gc) { error.value = 'ใส่รหัสส่วนตัวด้วย หรือเข้าด้วย Google'; return; }
       busy.value = true;
       try {
-        const roomId = await joinWithGuestCode(rc, gc);
-        say('เข้าห้องแล้ว');
-        location.hash = '#r-' + roomId;
+        const { roomId, meetId } = await joinWithGuestCode(rc, gc);
+        say('เข้าแล้ว');
+        location.hash = meetId ? '#m-' + roomId + '-' + meetId : '#r-' + roomId;
       } catch (e) {
         error.value = e.code ? explain(e) : e.message;
       }
@@ -45,13 +45,19 @@ export default {
         <span style="background:#F5B100"></span><span style="background:#8E4EC6"></span><span style="background:#0091D5"></span><span style="background:#F76B15"></span>
       </div>
       <h1 style="font-size: 44px; line-height: 1">ว่างไหม</h1>
-      <p class="muted" style="margin: 0; max-width: 32ch">แปะวันว่างของแต่ละคน แล้วดูว่าวันไหนว่างกันครบแก๊ง</p>
+      <p class="muted" style="margin: 0; max-width: 32ch">ลงวันว่างของแต่ละคน แล้วดูว่าวันไหนว่างครบแก๊ง</p>
+    </div>
+
+    <div class="sheet">
+      <button class="btn primary" type="button" @click="google">เข้าด้วย Google</button>
+      <p class="small muted" style="margin: 0">เข้าด้วย Google เพื่อสร้างแก๊ง เริ่มนัด และเก็บประวัตินัดไว้ในบัญชี</p>
+      <p class="small muted" style="margin: 0">เพื่อนส่งลิงก์มา? กดลิงก์นั้นได้เลย ไม่ต้องสมัคร</p>
     </div>
 
     <form class="sheet" @submit.prevent="join">
-      <h2>มีรหัสจากเพื่อน</h2>
+      <h2 style="font-size: 16px">มีรหัสส่วนตัวจากเพื่อน</h2>
       <div class="field">
-        <label for="roomCode">รหัสห้อง</label>
+        <label for="roomCode">รหัสแก๊ง</label>
         <input id="roomCode" class="input code" v-model="room" maxlength="7" autocomplete="off" autocapitalize="characters" placeholder="K7Q-X2M">
       </div>
       <div class="field">
@@ -59,10 +65,7 @@ export default {
         <input id="guestCode" class="input code" v-model="guest" maxlength="9" autocomplete="off" autocapitalize="characters" placeholder="HX4P-9KTW">
       </div>
       <p class="err" v-if="error">{{ error }}</p>
-      <button class="btn primary" type="submit" :disabled="busy">{{ busy ? 'กำลังเข้า…' : 'เข้าห้อง' }}</button>
-      <div class="row muted small" style="gap: 10px"><span class="grow" style="height:1px;background:var(--line)"></span>หรือ<span class="grow" style="height:1px;background:var(--line)"></span></div>
-      <button class="btn" type="button" @click="google">เข้าด้วย Google</button>
-      <p class="small muted" style="margin: 0">เข้าด้วย Google เพื่อสร้างห้องเอง หรือเข้าห้องด้วยรหัสห้องอย่างเดียว</p>
+      <button class="btn" type="submit" :disabled="busy">{{ busy ? 'กำลังเข้า…' : 'เข้า' }}</button>
     </form>
   </section>`,
 };

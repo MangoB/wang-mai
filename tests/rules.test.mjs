@@ -234,6 +234,15 @@ test('a draw result must be one of the candidates', async () => {
   await assertFails(b.commit());
 });
 
+test('deleting a room closes its meetups to former members', async () => {
+  await createRoom(google('owner'), 'owner');
+  await joinAsMember(google('nat'), 'nat');
+  await createMeetup(google('owner'));
+  await assertSucceeds(getDoc(doc(google('nat'), 'rooms', ROOM, 'meetups', 'm1')));
+  await assertSucceeds(deleteDoc(doc(google('owner'), 'rooms', ROOM)));
+  await assertFails(getDoc(doc(google('nat'), 'rooms', ROOM, 'meetups', 'm1')));
+});
+
 // ------------------------------------------------------------------ everything else
 
 test('admins collection and unknown paths are closed', async () => {

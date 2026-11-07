@@ -1,4 +1,5 @@
 .DS_Store
 .env*
 dist/
+e2e-failure.png
 node_modules/

@@ -71,7 +71,7 @@ service cloud.firestore {
 
     // A guest stays a member only while their invite is claimed by this browser (re-claim on a new device revokes the old one).
     function isMember(roomId) {
-      return signedIn() && exists(memberRef(roomId))
+      return signedIn() && exists(docPath('rooms/' + roomId)) && exists(memberRef(roomId))
         && member(roomId).status == 'active'
         && (member(roomId).kind == 'member' || inviteClaimedBy(roomId, member(roomId).inviteCode) == uid());
     }

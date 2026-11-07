@@ -210,3 +210,8 @@ button.sum-item { cursor: pointer; text-decoration: underline dotted var(--ink-2
 .done-ticket .stub { background: var(--gold); color: var(--ink-fixed); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 0; }
 .done-ticket .stub b { font-family: var(--f-display); font-size: 32px; line-height: 1; }
 .done-ticket .body { padding: 12px 14px 12px 16px; border-left: 2px dashed var(--gold); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+/* Phones: month nav and the bulk-entry button share one row; the summary hint is implied by the dotted underline. */
+.cal-head .icon-btn { width: 34px; height: 34px; }
+.m-short { display: none; }
+@media (max-width: 520px) { .sum-hint, .m-long { display: none; } .m-short { display: inline; } }

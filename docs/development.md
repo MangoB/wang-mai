@@ -3,60 +3,63 @@
 ## โครงสร้างไฟล์
 
 ```
-index.html                 import map (Vue, Firebase) + mount #app
-src/
-  main.js                  เริ่ม connect() แล้ว mount App
-  firebase.js              firebaseConfig + db
-  store.js                 state ทั้งหมด + ทุกการอ่าน/เขียน Firestore
-  App.js                   layout หลัก: header, ประกอบ component, footer
-  style.css                สไตล์ทั้งหมด (สีเป็น token บน :root รองรับ dark mode)
-  lib/
-    dates.js               ฟังก์ชันวันที่ (ไม่มี dependency ทดสอบด้วย node ได้)
-    maps.js                อ่านลิงก์ Google Maps, ทำลิงก์ embed, ตรวจ URL
-  components/
-    ProfileGate.js         เลือกชื่อเดิม / สร้างชื่อใหม่
-    CalendarBoard.js       ปฏิทิน + ลงทีละหลายวัน
-    DateVotes.js           โหวตวัน
-    PlacesBoard.js         สถานที่ + แผนที่ + โหวต
-    ResetModal.js          modal ยืนยันล้างข้อมูล
-firestore.rules            security rules
-.github/workflows/deploy.yml
+index.html, src/           v1: นัดแรก (เข้าด้วยการพิมพ์ชื่อ)
+  firebase.js              config, App Check, ต่อ emulator อัตโนมัติบน localhost (v2 ใช้ร่วม)
+  store.js                 state + ทุกการอ่าน/เขียน Firestore ของ v1
+  lib/dates.js, maps.js    ฟังก์ชันวันที่และลิงก์แผนที่ (ไม่มี dependency, v2 ใช้ร่วม)
+  components/              ProfileGate, CalendarBoard, DateVotes, PlacesBoard, ResetModal
+v2/                        v2: ห้อง, guest, member Google (เว็บที่ /v2/)
+  src/store.js             state + ทุกการอ่าน/เขียน Firestore และ Auth ของ v2
+  src/App.js               router จาก hash: #r-ห้อง, #m-ห้อง-นัด, #members-ห้อง, #j-รหัสห้อง-รหัสส่วนตัว
+  src/views/               JoinView, HomeView, RoomView, MeetupView, MembersView
+  src/components/          CalendarPanel, PlacesPanel, DrawPanel
+  src/lib/                 codes.js (สุ่มรหัส), palette.js (สีประจำตัว 12 สี)
+  src/style.css            design tokens ตาม docs/design-system.md
+firestore.rules            rules ของ v1 และ v2
+tests/rules.test.mjs       ทดสอบ rules บน emulator
+tests/e2e.mjs              ทดสอบผ่านเบราว์เซอร์จริง (Playwright + emulator)
+.github/workflows/         test.yml (ทุก push), deploy.yml (push ขึ้น main)
 ```
 
 ## หลักการ
 
-- **component ไม่คุยกับ Firestore ตรง ๆ** — เรียกฟังก์ชันใน `store.js` เท่านั้น ถ้าจะเปลี่ยนฐานข้อมูลในอนาคตแก้ไฟล์เดียว
-- **component เขียนเป็น object + `template` string** (Vue runtime compiler) ไม่ใช่ `.vue` เพราะไม่มี build step
-  ถ้าใช้ VS Code ติดตั้ง extension "es6-string-html" แล้วใส่ `/* html */` หน้า template จะได้ syntax highlight
-- **ข้อมูลของแต่ละคนอยู่ใน document เดียว** `people/{key}` เขียนทั้ง doc ทุกครั้ง และรวมการกดถี่ ๆ ไว้ (`queueSave`)
-- **นับโหวตฝั่ง client** จากทุก document ไม่มี counter กลาง
+- ไม่มี build step: Vue 3 และ Firebase โหลดผ่าน import map, component เป็น object + `template` string
+- component ไม่คุยกับ Firebase ตรง ๆ เรียกฟังก์ชันใน `store.js` เท่านั้น
+- ข้อมูลของแต่ละคนอยู่ใน document เดียว เขียนทั้ง doc และรวมการกดถี่ ๆ เป็นการเขียนครั้งเดียว
+- นับโหวตและวันว่างฝั่ง client ไม่มี counter กลาง
+- สีสดเป็นของคนเท่านั้น UI ใช้ token ใน `style.css` รองรับธีมสว่างและมืด
 - ข้อความ UI เป็นภาษาไทย สั้น ตรง
 
-## เพิ่มฟีเจอร์ทั่วไป
+## รันในเครื่อง
 
-1. ถ้าต้องเก็บข้อมูลใหม่: เพิ่ม field ใน `store.js` → อัปเดต `firestore.rules` (ไม่งั้นจะเขียนไม่ผ่าน) → อัปเดต `docs/data-model.md`
-2. สร้าง component ใหม่ใน `src/components/` แล้ว import ใน `App.js`
-3. ทดสอบกับ Firebase Emulator แล้ว push (API key ของเว็บจริงไม่รับ localhost โดยตั้งใจ)
+API key ของเว็บจริงไม่รับ localhost โดยตั้งใจ ในเครื่องจึงใช้ Firebase Emulator (โค้ดต่อให้อัตโนมัติเมื่อเปิดจาก localhost)
 
-## Security rules
+```bash
+npm install                                         # ครั้งแรก (เครื่องมือทดสอบเท่านั้น)
+npx firebase emulators:start --only firestore,auth --project wang-mai
+python3 -m http.server 5173                         # อีกหน้าต่าง → http://localhost:5173/v2/
+```
 
-`firestore.rules` ต้อง publish แยกจากการ push โค้ด เลือกได้ 2 ทาง:
+## ทดสอบ
 
-- **ง่ายสุด:** Firebase console → Firestore Database → Rules → วางเนื้อหาไฟล์ → Publish
-- **CLI:** `npm i -g firebase-tools` → `firebase login` → `firebase deploy --only firestore:rules`
+```bash
+npm test            # security rules บน emulator
+npm run test:e2e    # เปิดเว็บใน Chromium แล้วเดินผ่าน: เข้าห้องด้วยลิงก์เชิญ → ลงวัน → เพิ่มที่ → สุ่ม → สรุปนัด
+```
+
+GitHub Actions รันทั้งสองชุดทุกครั้งที่ push
+
+## เพิ่มหรือแก้ข้อมูลที่เก็บ
+
+1. แก้ `store.js` ของเวอร์ชันนั้น
+2. แก้ `firestore.rules` และเพิ่มเคสใน `tests/rules.test.mjs`
+3. อัปเดต `docs/data-model.md`
+4. หลัง merge: publish rules (Firebase console → Firestore → Rules หรือ `npx firebase deploy --only firestore:rules`)
 
 ## Deploy
 
-push ขึ้น `main` → GitHub Actions คัดลอก `index.html` + `src/` ขึ้น GitHub Pages (ดูสถานะที่แท็บ Actions)
-
-## ทดสอบฟังก์ชัน
-
-ไฟล์ใน `src/lib/` ไม่พึ่ง Vue/Firebase ทดสอบด้วย node ได้เลย:
-
-```bash
-node -e "import('./src/lib/dates.js').then(m => console.log(m.datesMatching('2026-11-01','2026-11-30',[6])))"
-```
+merge เข้า `main` → GitHub Actions คัดลอก `index.html`, `src/`, `v2/` ขึ้น GitHub Pages
 
 ## เวอร์ชันไลบรารี
 
-ตั้งใน import map ของ `index.html` (Vue 3.4.21, Firebase 10.12.2) อัปเกรดโดยเปลี่ยนเลขเวอร์ชันใน URL แล้วทดสอบ
+ตั้งใน import map ของ `index.html` และ `v2/index.html` (Vue 3.4.21, Firebase 10.12.2) อัปเกรดพร้อมกันทั้งสองไฟล์

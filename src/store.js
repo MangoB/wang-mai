@@ -285,18 +285,19 @@ export const isOwner = computed(() => !!myMember.value && myMember.value.role ==
 export const inGang = computed(() => !!myMember.value && myMember.value.status === 'active' && !myMember.value.meetId);
 export const ROLE_LABEL = { owner: 'ผู้สร้างแก๊ง', cohost: 'ผู้ดูแลแก๊ง', participant: 'สมาชิกแก๊ง' };
 
-/** One entry per person (pid). A guest who moved devices keeps only the newest member doc. */
-export const people = computed(() => {
+/** One entry per person (pid): someone who opened their personal link on several devices has one member doc per device. */
+function onePerPerson(members) {
   const byPid = new Map();
-  for (const m of room.members) {
+  const t = (x) => (x.joinedAt && x.joinedAt.toMillis ? x.joinedAt.toMillis() : 0);
+  for (const m of members) {
     if (m.status !== 'active') continue;
     const prev = byPid.get(m.pid);
-    const t = (x) => (x.joinedAt && x.joinedAt.toMillis ? x.joinedAt.toMillis() : 0);
     if (!prev || t(m) > t(prev)) byPid.set(m.pid, m);
   }
   const order = { owner: 0, cohost: 1, participant: 2 };
   return [...byPid.values()].sort((a, b) => (order[a.role] - order[b.role]) || a.name.localeCompare(b.name, 'th'));
-});
+}
+export const people = computed(() => onePerPerson(room.members));
 
 // ------------------------------------------------------------------ room admin
 export async function renameRoom(name) {
@@ -352,10 +353,13 @@ export async function setMyColor(color) {
   await updateDoc(doc(db, 'rooms', room.id, 'members', session.user.uid), { color });
 }
 
-/** Make someone a guest of one meetup (meetId) or a full member of the gang (null). Keeps their invite in step. */
+/**
+ * Make someone a guest of one meetup (meetId) or a member of the gang (null), on every device they used,
+ * and keep their personal link in step so a new device gets the same scope.
+ */
 export async function setScope(m, meetId) {
   const b = writeBatch(db);
-  b.update(doc(db, 'rooms', room.id, 'members', m.uid), { meetId: meetId || null });
+  for (const x of room.members.filter((y) => y.pid === m.pid)) b.update(doc(db, 'rooms', room.id, 'members', x.uid), { meetId: meetId || null });
   if (m.kind === 'guest' && m.inviteCode) b.update(doc(db, 'rooms', room.id, 'invites', m.inviteCode), { meetId: meetId || null });
   await b.commit();
 }
@@ -679,8 +683,9 @@ export async function loadHome() {
     try {
       const [rs, ms] = await Promise.all([getDoc(doc(db, 'rooms', id)), getDocs(collection(db, 'rooms', id, 'members'))]);
       if (!rs.exists()) return null;
-      const members = ms.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((m) => m.status === 'active');
-      const me = members.find((m) => m.uid === uid);
+      const all = ms.docs.map((d) => ({ uid: d.id, ...d.data() }));
+      const me = all.find((m) => m.uid === uid && m.status === 'active');
+      const members = onePerPerson(all);
       if (!me) return null;
       let meetups;
       if (me.meetId) {

@@ -69,18 +69,13 @@ async function createMeetup(db, id = 'm1') {
 
 // ------------------------------------------------------------------ v1
 
-test('v1: anyone reads and writes a well-formed person', async () => {
+test('v1 is read-only after the move to v2', async () => {
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'people', 'p74657374'), { name: 'test', dates: [], voteDates: [], votePlaces: [] }));
   const db = nobody();
-  await assertSucceeds(setDoc(doc(db, 'people', 'p74657374'), { name: 'test', dates: ['2026-11-07'], voteDates: [], votePlaces: [], updatedAt: 1 }));
   await assertSucceeds(getDoc(doc(db, 'people', 'p74657374')));
-});
-
-test('v1: rejects bad shapes', async () => {
-  const db = nobody();
-  await assertFails(setDoc(doc(db, 'people', 'p74'), { name: 'x'.repeat(31), dates: [], voteDates: [], votePlaces: [] }));
-  await assertFails(setDoc(doc(db, 'people', 'p74'), { name: 'a', dates: [], voteDates: [], votePlaces: [], extra: 1 }));
-  await assertFails(setDoc(doc(db, 'people', 'NOTAKEY'), { name: 'a', dates: [], voteDates: [], votePlaces: [] }));
-  await assertFails(setDoc(doc(db, 'places', 'x'), { title: 'a', url: 'javascript:alert(1)', by: 'a', byKey: 'p61' }));
+  await assertFails(setDoc(doc(db, 'people', 'p74657374'), { name: 'test', dates: ['2026-11-07'], voteDates: [], votePlaces: [], updatedAt: 1 }));
+  await assertFails(deleteDoc(doc(db, 'people', 'p74657374')));
+  await assertFails(setDoc(doc(db, 'places', 'x'), { title: 'a', url: '', by: 'a', byKey: 'p61' }));
 });
 
 // ------------------------------------------------------------------ rooms

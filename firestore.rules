@@ -16,41 +16,17 @@ service cloud.firestore {
     function docPath(p) { return path('/databases/' + database + '/documents/' + p); }
 
     // ===================================================================== v1
-    function isKey(k) { return k is string && k.matches('p[0-9a-f]{2,200}'); }
     function isList(v, max) { return v is list && v.size() <= max; }
 
-    function validPerson(d) {
-      return d.keys().hasOnly(['name', 'dates', 'voteDates', 'votePlaces', 'updatedAt'])
-        && d.keys().hasAll(['name', 'dates', 'voteDates', 'votePlaces'])
-        && str(d.name, 1, 30)
-        && isList(d.dates, 1000)
-        && isList(d.voteDates, 200)
-        && isList(d.votePlaces, 200)
-        && (!('updatedAt' in d) || d.updatedAt is number);
-    }
-
-    function validPlace(d) {
-      return d.keys().hasOnly(['title', 'url', 'note', 'by', 'byKey', 'createdAt'])
-        && d.keys().hasAll(['title', 'url', 'by', 'byKey'])
-        && str(d.title, 1, 80)
-        && str(d.url, 0, 500) && (d.url == '' || d.url.matches('https?://.+'))
-        && (!('note' in d) || str(d.note, 0, 300))
-        && str(d.by, 1, 30)
-        && isKey(d.byKey)
-        && (!('createdAt' in d) || d.createdAt is number);
-    }
-
+    // v1 moved into v2 (docs/decisions/0001): its data stays readable for the record, nobody writes it.
     match /people/{key} {
       allow read: if true;
-      allow create, update: if isKey(key) && validPerson(request.resource.data);
-      allow delete: if true;
+      allow write: if false;
     }
 
     match /places/{id} {
       allow read: if true;
-      allow create: if validPlace(request.resource.data);
-      allow update: if false;
-      allow delete: if true;
+      allow write: if false;
     }
 
     // ===================================================================== v2

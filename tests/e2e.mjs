@@ -61,9 +61,9 @@ const step = async (name, fn) => {
 };
 
 try {
-  await step('v1 still loads', async () => {
+  await step('the old link points to v2', async () => {
     await page.goto(BASE + '/');
-    await page.getByRole('heading', { name: 'ว่างไหม' }).waitFor();
+    await page.getByRole('link', { name: 'ไปที่ว่างไหม' }).waitFor();
   });
 
   await step('guest joins with an invite link', async () => {

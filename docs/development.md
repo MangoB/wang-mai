@@ -3,11 +3,10 @@
 ## โครงสร้างไฟล์
 
 ```
-index.html, src/           v1: นัดแรก (เข้าด้วยการพิมพ์ชื่อ)
-  firebase.js              config, App Check, ต่อ emulator อัตโนมัติบน localhost (v2 ใช้ร่วม)
-  store.js                 state + ทุกการอ่าน/เขียน Firestore ของ v1
-  lib/dates.js, maps.js    ฟังก์ชันวันที่และลิงก์แผนที่ (ไม่มี dependency, v2 ใช้ร่วม)
-  components/              ProfileGate, CalendarBoard, DateVotes, PlacesBoard, ResetModal
+index.html                 ลิงก์เดิม: หน้าชี้ไป v2 (v1 ย้ายเข้า v2 แล้ว ดู docs/decisions/0001)
+src/
+  firebase.js              config, App Check, ต่อ emulator อัตโนมัติบน localhost
+  lib/dates.js, maps.js    ฟังก์ชันวันที่และลิงก์แผนที่ (ไม่มี dependency)
 v2/                        v2: ห้อง, guest, member Google (เว็บที่ /v2/)
   src/store.js             state + ทุกการอ่าน/เขียน Firestore และ Auth ของ v2
   src/App.js               router จาก hash: #r-ห้อง, #m-ห้อง-นัด, #members-ห้อง, #j-รหัสห้อง-รหัสส่วนตัว
@@ -17,6 +16,7 @@ v2/                        v2: ห้อง, guest, member Google (เว็บ�
   src/style.css            design tokens ตาม docs/design-system.md
 firestore.rules            rules ของ v1 และ v2
 tests/rules.test.mjs       ทดสอบ rules บน emulator
+tests/lib.test.mjs         ทดสอบฟังก์ชันใน lib ด้วย node
 tests/e2e.mjs              ทดสอบผ่านเบราว์เซอร์จริง (Playwright + emulator)
 .github/workflows/         test.yml (ทุก push), deploy.yml (push ขึ้น main)
 ```

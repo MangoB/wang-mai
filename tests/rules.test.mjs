@@ -249,6 +249,17 @@ test('deleting a room closes its meetups to former members', async () => {
   await assertFails(getDoc(doc(google('nat'), 'rooms', ROOM, 'meetups', 'm1')));
 });
 
+test('hosts rename the room and its meetups; participants cannot', async () => {
+  await createRoom(google('owner'), 'owner');
+  await joinAsMember(google('nat'), 'nat');
+  await createMeetup(google('owner'), 'm1');
+  await assertSucceeds(updateDoc(doc(google('owner'), 'rooms', ROOM), { name: 'แก๊งเรา' }));
+  await assertSucceeds(updateDoc(doc(google('owner'), 'rooms', ROOM, 'meetups', 'm1'), { title: 'นัดแรก' }));
+  await assertFails(updateDoc(doc(google('owner'), 'rooms', ROOM), { name: 'x'.repeat(41) }));
+  await assertFails(updateDoc(doc(google('nat'), 'rooms', ROOM), { name: 'ของฉัน' }));
+  await assertFails(updateDoc(doc(google('nat'), 'rooms', ROOM, 'meetups', 'm1'), { title: 'ของฉัน' }));
+});
+
 // ------------------------------------------------------------------ meetup-only guests
 
 test('members list meetups; a meetup-only guest sees and edits just that meetup', async () => {

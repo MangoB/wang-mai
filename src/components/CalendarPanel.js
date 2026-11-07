@@ -137,31 +137,14 @@ export default {
           </button>
         </template>
       </div>
-      <p class="small muted" style="margin: 4px 4px 0" v-if="isOpen">แตะวันเพื่อลงหรือเอาวันที่คุณว่างออก สติกเกอร์ที่มีกรอบคือของคุณ</p>
-    </div>
-
-    <div class="sheet" v-if="selected">
-      <div class="row between">
-        <h2 class="display">{{ fmtLong(selected) }}</h2>
-        <span class="small muted">ว่าง {{ selFree.length }} จาก {{ total }}</span>
+      <div class="row between" style="margin: 8px 4px 0; flex-wrap: nowrap; align-items: flex-start" v-if="isOpen">
+        <p class="small muted" style="margin: 0">แตะวันเพื่อลงหรือเอาวันที่คุณว่างออก สติกเกอร์ที่มีกรอบคือของคุณ</p>
+        <button type="button" class="btn sm" style="flex: none" :aria-expanded="quick.open" aria-controls="quick-form" @click="quick.open = !quick.open">
+          ลงทีละหลายวัน
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" :style="quick.open ? 'transform: rotate(180deg)' : ''"><path d="M6 9l6 6 6-6"></path></svg>
+        </button>
       </div>
-      <div class="row" v-if="selFree.length">
-        <span v-for="p in selFree" :key="p.pid" class="person"><span class="chip" :class="{ me: p.pid === myPid }" :style="chipStyle(p.color)">{{ p.name.charAt(0) }}</span>{{ p.name }}</span>
-      </div>
-      <div class="row" v-if="selBusy.length">
-        <span v-for="p in selBusy" :key="p.pid" class="person off">{{ p.name }}</span>
-      </div>
-      <button v-if="isOpen" class="vote" :aria-pressed="mine.voteDates.includes(selected)" @click="toggleVote('voteDates', selected)" style="align-self: flex-start">
-        {{ mine.voteDates.includes(selected) ? 'โหวตวันนี้แล้ว' : 'โหวตวันนี้' }}
-      </button>
-    </div>
-
-    <div class="sheet" v-if="isOpen">
-      <button class="row between" type="button" style="background: none; border: 0; padding: 0; cursor: pointer; width: 100%" :aria-expanded="quick.open" @click="quick.open = !quick.open">
-        <h2>ลงทีละหลายวัน</h2>
-        <span class="small muted">{{ quick.open ? 'ซ่อน' : 'เปิด' }}</span>
-      </button>
-      <template v-if="quick.open">
+      <div v-if="quick.open" id="quick-form" class="stack" style="gap: 12px; padding: 12px 4px 4px; border-top: 1px solid var(--line); margin-top: 8px">
         <div class="row">
           <button class="btn sm" @click="preset('weekend')">เสาร์-อาทิตย์ เดือนนี้</button>
           <button class="btn sm" @click="preset('fri')">ศุกร์ทั้งเดือน</button>
@@ -176,23 +159,45 @@ export default {
         </div>
         <p class="small muted" style="margin: 0">{{ quickSummary }}</p>
         <div class="row">
-          <button class="btn primary" @click="apply(true)" :disabled="!quickDates.length">ลงวันว่าง</button>
+          <button class="btn primary" @click="apply(true)" :disabled="!quickDates.length">ลงวันว่าง {{ quickDates.length || '' }} วัน</button>
           <button class="btn" @click="apply(false)" :disabled="!quickDates.length">เอาออก</button>
         </div>
-      </template>
+      </div>
+    </div>
+
+    <div class="sheet" v-if="selected">
+      <div class="row between">
+        <h2 class="display">{{ fmtLong(selected) }}</h2>
+        <span class="small muted">ว่าง {{ selFree.length }} จาก {{ total }}</span>
+      </div>
+      <div class="row" v-if="selFree.length">
+        <span v-for="p in selFree" :key="p.pid" class="person"><span class="chip" :class="{ me: p.pid === myPid }" :style="chipStyle(p.color)">{{ p.name.charAt(0) }}</span>{{ p.name }}</span>
+      </div>
+      <div class="row" v-if="selBusy.length">
+        <span v-for="p in selBusy" :key="p.pid" class="person off">{{ p.name }}</span>
+      </div>
+      <div v-if="isOpen" class="row">
+        <span v-if="mine.voteDates.includes(selected)" class="voted"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg> คุณโหวตวันนี้แล้ว</span>
+        <button class="vote" :aria-pressed="mine.voteDates.includes(selected)" @click="toggleVote('voteDates', selected)">
+          {{ mine.voteDates.includes(selected) ? 'ยกเลิกโหวต' : 'โหวตวันนี้' }}
+        </button>
+      </div>
     </div>
 
     <div class="sheet">
       <h2>วันที่น่าไปที่สุด</h2>
       <div class="list" v-if="topDates.length">
-        <div v-for="(r, i) in topDates.slice(0, 6)" :key="r.date" class="item" :class="{ lead: i === 0 && r.votes.length }" style="flex-wrap: wrap">
+        <div v-for="(r, i) in topDates.slice(0, 6)" :key="r.date" class="item" :class="{ lead: i === 0 && r.votes.length, mine: mine.voteDates.includes(r.date) }" style="flex-wrap: wrap">
           <button type="button" class="grow" style="background: none; border: 0; padding: 0; text-align: left; cursor: pointer" @click="jumpTo(r.date)">
             <b>{{ fmtLong(r.date) }}</b>
             <svg v-if="goldDates.includes(r.date)" class="crown" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-label="ว่างครบ"><path :d="CROWN"></path></svg>
             <span class="chips" style="margin-top: 4px"><span v-for="p in r.free" :key="p.pid" class="sq" :style="{ background: chipStyle(p.color).background }"></span></span>
             <span class="small muted">ว่าง {{ r.free.length }}/{{ total }}<template v-if="r.votes.length">, โหวต {{ r.votes.length }}</template></span>
           </button>
-          <button v-if="isOpen" class="vote" :aria-pressed="mine.voteDates.includes(r.date)" @click="toggleVote('voteDates', r.date)">{{ mine.voteDates.includes(r.date) ? 'โหวตแล้ว' : 'โหวต' }}</button>
+          <span v-if="isOpen" class="row" style="gap: 6px">
+            <span v-if="mine.voteDates.includes(r.date)" class="voted"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg> โหวตแล้ว</span>
+            <button class="vote" :aria-pressed="mine.voteDates.includes(r.date)" :aria-label="(mine.voteDates.includes(r.date) ? 'ยกเลิกโหวต ' : 'โหวต ') + fmtLong(r.date)" @click="toggleVote('voteDates', r.date)">{{ mine.voteDates.includes(r.date) ? 'ยกเลิกโหวต' : 'โหวต' }}</button>
+          </span>
         </div>
       </div>
       <p class="muted small" v-else>ยังไม่มีใครลงวันว่าง เริ่มจากแตะวันที่คุณว่างบนปฏิทิน</p>

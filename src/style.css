@@ -124,7 +124,10 @@ textarea.input { padding: 10px 14px; min-height: 72px; resize: vertical; }
 .tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--sunk); white-space: nowrap; }
 .tag.warn { background: var(--danger-soft); color: var(--danger); }
 .vote { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--ink); background: var(--card); font-weight: 600; cursor: pointer; white-space: nowrap; }
-.vote[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+/* Voted: the badge says so; the button only offers to take it back. */
+.vote[aria-pressed="true"] { border-color: var(--line); background: transparent; color: var(--ink-2); font-weight: 500; }
+.voted { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 8px; background: var(--gold-soft); color: var(--gold-ink); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.item.mine { border-color: var(--gold); }
 
 /* places */
 .places { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }

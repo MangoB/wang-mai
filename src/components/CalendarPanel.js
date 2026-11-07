@@ -1,6 +1,6 @@
 import { reactive, ref, computed } from 'vue';
 import {
-  WD, keyOfDate, parseKey, datesMatching, fmtShort, fmtLong, monthTitle,
+  WD, MSHORT, keyOfDate, parseKey, datesMatching, fmtShort, fmtLong, monthTitle,
 } from '../lib/dates.js';
 import {
   today, todayKey, mine, meetPeople, myMember, freeByDate, goldDates, topDates, isOpen, toggleDate, setDates, toggleVote, say,
@@ -101,7 +101,7 @@ export default {
     function jumpTo(k) { const d = parseKey(k); view.y = d.getFullYear(); view.m = d.getMonth(); selected.value = k; }
 
     return {
-      WD, CROWN, view, canPrev, shift, monthTitle, cells, tap, selected, quick, toggleQ, quickDates, quickSummary, preset, apply,
+      WD, MSHORT, CROWN, view, canPrev, shift, monthTitle, cells, tap, selected, quick, toggleQ, quickDates, quickSummary, preset, apply,
       selFree, selBusy, fmtLong, fmtShort, goldDates, topDates, total, mine, toggleVote, isOpen, chipStyle, myPid, jumpTo,
     };
   },
@@ -121,7 +121,7 @@ export default {
         <button class="icon-btn" @click="shift(-1)" :disabled="!canPrev" aria-label="เดือนก่อน">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
         </button>
-        <h2 class="display" style="font-weight: 600; font-size: 17px; white-space: nowrap">{{ monthTitle(view.y, view.m) }}</h2>
+        <h2 class="display" style="font-weight: 600; font-size: 16px; white-space: nowrap"><span class="m-long">{{ monthTitle(view.y, view.m) }}</span><span class="m-short">{{ MSHORT[view.m] + ' ' + (view.y + 543) }}</span></h2>
         <button class="icon-btn" @click="shift(1)" aria-label="เดือนถัดไป">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
         </button>

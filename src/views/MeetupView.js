@@ -119,7 +119,7 @@ export default {
           <span class="ic" aria-hidden="true">📍</span>
           <b v-if="result.placeTitle">{{ result.placeTitle }}</b><span v-else class="muted">ยังไม่ได้เลือกสถานที่</span>
         </component>
-        <span v-if="canRun" class="small muted" style="margin-left: auto">แตะเพื่อสรุป</span>
+        <span v-if="canRun" class="small muted sum-hint" style="margin-left: auto">แตะเพื่อสรุป</span>
       </section>
       <section v-else class="done-ticket ticket" aria-label="นัดสำเร็จ">
         <div class="stub">

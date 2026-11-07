@@ -39,8 +39,8 @@ async function createRoom(db, uid, { roomId = ROOM, code = CODE } = {}) {
   return b.commit();
 }
 
-async function joinAsMember(db, uid, code = CODE, roomId = ROOM) {
-  return setDoc(doc(db, 'rooms', roomId, 'members', uid), {
+async function joinAsMember(db, uid, code = CODE) {
+  return setDoc(doc(db, 'rooms', ROOM, 'members', uid), {
     name: 'Nat', color: 0, kind: 'member', role: 'participant', status: 'active', pid: uid, joinCode: code, joinedAt: serverTimestamp(),
   });
 }
@@ -112,8 +112,8 @@ test('outsiders cannot read a room or list room codes', async () => {
 
 test('member joins with the right room code only', async () => {
   await createRoom(google('owner'), 'owner');
-  await assertFails(joinAsMember(google('nat'), 'ZZZZZZ'));
-  await assertSucceeds(joinAsMember(google('nat')));
+  await assertFails(joinAsMember(google('nat'), 'nat', 'ZZZZZZ'));
+  await assertSucceeds(joinAsMember(google('nat'), 'nat'));
   await assertSucceeds(getDoc(doc(google('nat'), 'rooms', ROOM)));
 });
 
@@ -152,7 +152,7 @@ test('guest cannot pick another name than the invite', async () => {
 
 test('only hosts create invites; participants cannot list them', async () => {
   await createRoom(google('owner'), 'owner');
-  await joinAsMember(google('nat'));
+  await joinAsMember(google('nat'), 'nat');
   await assertFails(createInvite(google('nat'), 'nat', 'AAAAAAAA'));
   await assertSucceeds(createInvite(google('owner'), 'owner'));
 });
@@ -161,17 +161,17 @@ test('only hosts create invites; participants cannot list them', async () => {
 
 test('blocked member loses access and cannot rejoin', async () => {
   await createRoom(google('owner'), 'owner');
-  await joinAsMember(google('nat'));
+  await joinAsMember(google('nat'), 'nat');
   await assertSucceeds(updateDoc(doc(google('owner'), 'rooms', ROOM, 'members', 'nat'), { status: 'blocked' }));
   await assertFails(getDoc(doc(google('nat'), 'rooms', ROOM)));
-  await assertFails(joinAsMember(google('nat')));
+  await assertFails(joinAsMember(google('nat'), 'nat'));
   await assertFails(updateDoc(doc(google('nat'), 'rooms', ROOM, 'members', 'nat'), { status: 'active' }));
 });
 
 test('nobody can change the owner; only the owner promotes co-hosts', async () => {
   await createRoom(google('owner'), 'owner');
-  await joinAsMember(google('nat'));
-  await joinAsMember(google('beer'));
+  await joinAsMember(google('nat'), 'nat');
+  await joinAsMember(google('beer'), 'beer');
   await assertFails(updateDoc(doc(google('nat'), 'rooms', ROOM, 'members', 'beer'), { role: 'cohost' }));
   await assertSucceeds(updateDoc(doc(google('owner'), 'rooms', ROOM, 'members', 'nat'), { role: 'cohost' }));
   await assertFails(updateDoc(doc(google('nat'), 'rooms', ROOM, 'members', 'owner'), { status: 'blocked' }));
@@ -181,14 +181,14 @@ test('nobody can change the owner; only the owner promotes co-hosts', async () =
 
 test('only hosts create meetups', async () => {
   await createRoom(google('owner'), 'owner');
-  await joinAsMember(google('nat'));
+  await joinAsMember(google('nat'), 'nat');
   await assertFails(createMeetup(google('nat')));
   await assertSucceeds(createMeetup(google('owner')));
 });
 
 test('availability: own pid only, real dates only', async () => {
   await createRoom(google('owner'), 'owner');
-  await joinAsMember(google('nat'));
+  await joinAsMember(google('nat'), 'nat');
   await createMeetup(google('owner'));
   const db = google('nat');
   const ok = { dates: '2026-11-14,2026-11-21', voteDates: '', votePlaces: [], hidden: false, updatedAt: serverTimestamp() };
@@ -200,7 +200,7 @@ test('availability: own pid only, real dates only', async () => {
 
 test('draws: host only, append-only, max 3 per kind', async () => {
   await createRoom(google('owner'), 'owner');
-  await joinAsMember(google('nat'));
+  await joinAsMember(google('nat'), 'nat');
   await createMeetup(google('owner'));
 
   const draw = (db, n, id, pid) => {

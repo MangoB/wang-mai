@@ -240,7 +240,7 @@ service cloud.firestore {
             && dateList(request.resource.data.dates)
             && dateList(request.resource.data.voteDates)
             && isList(request.resource.data.votePlaces, 100)
-            && request.resource.data.hidden == (resource == null ? false : resource.data.hidden)
+            && request.resource.data.hidden is bool   // "ไม่ไปรอบนี้": yours to set or undo too
             && request.resource.data.updatedAt == request.time;
           // Whoever runs the meetup marks someone "ไม่ไปรอบนี้" (hidden) or back, even before they entered anything.
           allow update: if canRun()

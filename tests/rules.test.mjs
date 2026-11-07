@@ -244,7 +244,10 @@ test('availability: own pid only, real dates only', async () => {
   await assertSucceeds(setDoc(doc(db, 'rooms', ROOM, 'meetups', 'm1', 'avail', 'nat'), ok));
   await assertFails(setDoc(doc(db, 'rooms', ROOM, 'meetups', 'm1', 'avail', 'owner'), ok));
   await assertFails(setDoc(doc(db, 'rooms', ROOM, 'meetups', 'm1', 'avail', 'nat'), { ...ok, dates: 'not a date' }));
-  await assertFails(setDoc(doc(db, 'rooms', ROOM, 'meetups', 'm1', 'avail', 'nat'), { ...ok, hidden: true }));
+  // Changing your mind: you can say you are not going, and come back after someone marked you "ไม่ไปรอบนี้".
+  await assertSucceeds(updateDoc(doc(db, 'rooms', ROOM, 'meetups', 'm1', 'avail', 'nat'), { hidden: true, updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(doc(db, 'rooms', ROOM, 'meetups', 'm1', 'avail', 'nat'), { hidden: false, updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(db, 'rooms', ROOM, 'meetups', 'm1', 'avail', 'nat'), { hidden: 'no', updatedAt: serverTimestamp() }));
 });
 
 test('draws: whoever runs the meetup, append-only, max 3 per kind', async () => {

@@ -1,7 +1,7 @@
 import { ref, reactive, computed, watch } from 'vue';
 import {
   room, meetup, openMeetup, canRun, isOpen, saveState, meetPeople, meetRoster, myMember, askedMeetup, personByPid,
-  closeMeetup, reopenMeetup, deleteMeetup, setHidden, renameMeetup, say, explain,
+  closeMeetup, reopenMeetup, deleteMeetup, setHidden, setMyGoing, renameMeetup, say, explain,
 } from '../store.js';
 import { fmtLong } from '../lib/dates.js';
 import { chipStyle } from '../lib/palette.js';
@@ -48,8 +48,13 @@ export default {
     // ----- who is in this meetup -----
     const hiddenPids = computed(() => new Set(meetup.avail.filter((a) => a.hidden).map((a) => a.pid)));
     async function toggleHidden(p) {
-      try { await setHidden(p.pid, !hiddenPids.value.has(p.pid)); } catch (e) { say(explain(e), 'error'); }
+      const going = hiddenPids.value.has(p.pid);
+      try {
+        if (myMember.value && p.pid === myMember.value.pid) await setMyGoing(going);
+        else await setHidden(p.pid, !going);
+      } catch (e) { say(explain(e), 'error'); }
     }
+    const notGoing = computed(() => !!myMember.value && hiddenPids.value.has(myMember.value.pid));
     const guests = computed(() => meetRoster.value.filter((p) => p.meetId).length);
     const creator = computed(() => meetup.data && personByPid.value.get(meetup.data.createdBy));
     const entered = computed(() => meetPeople.value.filter((p) => meetup.avail.some((a) => a.pid === p.pid && a.dates)).length);
@@ -60,7 +65,7 @@ export default {
 
     return {
       room, meetup, canRun, isOpen, saveState, tab, sending, result, deciding, decide, dayLabel, confirmKey, close, reopen, remove,
-      meetPeople, meetRoster, myMember, hiddenPids, toggleHidden, guests, creator, entered, chipStyle, rename,
+      meetPeople, meetRoster, myMember, hiddenPids, toggleHidden, notGoing, guests, creator, entered, chipStyle, rename,
     };
   },
   template: /* html */ `
@@ -83,6 +88,11 @@ export default {
         </div>
         <button v-if="isOpen && myMember" class="btn sm" @click="sending = true">ชวนเพิ่ม</button>
       </header>
+
+      <div v-if="isOpen && notGoing" class="sheet outlined row between" style="flex-direction: row; align-items: center">
+        <span class="grow">คุณอยู่ในสถานะ <b>ไม่ไปรอบนี้</b> วันว่างและโหวตของคุณยังไม่ถูกนับ</span>
+        <button class="btn sm primary" @click="toggleHidden(myMember)">ไปด้วย</button>
+      </div>
 
       <!-- สรุปนัด: day and place, decided separately -->
       <section class="gold-card stack" :class="{ ticket: !isOpen }" style="gap: 8px; padding: 12px 16px; align-items: stretch" aria-label="สรุปนัด">
@@ -117,13 +127,13 @@ export default {
                 <span v-if="p.meetId" class="tag">แขก</span>
                 <span v-if="hiddenPids.has(p.pid)" class="tag">ไม่ไป</span>
               </span>
-              <button v-if="canRun && isOpen" class="btn sm ghost" @click="toggleHidden(p)">
+              <button v-if="isOpen && (canRun || (myMember && p.pid === myMember.pid))" class="btn sm ghost" @click="toggleHidden(p)">
                 {{ hiddenPids.has(p.pid) ? 'ไปด้วย' : 'ไม่ไปรอบนี้' }}
               </button>
             </li>
           </ul>
           <p class="small muted" style="margin: 0" v-if="creator">ผู้สร้างนัด: {{ creator.name }}</p>
-          <p class="small muted" style="margin: 0" v-if="canRun">"ไม่ไปรอบนี้": ไม่นับวันว่างและโหวตของคนนั้น สถานที่ที่เขาเสนอยังอยู่ให้โหวตได้</p>
+          <p class="small muted" style="margin: 0">"ไม่ไปรอบนี้": ไม่นับวันว่างและโหวตของคนนั้น สถานที่ที่เขาเสนอยังอยู่ให้โหวตได้ เจ้าตัวกด "ไปด้วย" เองได้ถ้าเปลี่ยนใจ</p>
         </div>
       </details>
 

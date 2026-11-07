@@ -50,16 +50,19 @@ users/{uid}                               name, color, roomCount, rooms[], creat
 joinCodes/{roomCode}                      roomId                                ← get ได้ list ไม่ได้
 rooms/{roomId}                            name, ownerUid, joinCode, createdAt
   members/{uid}                           name, color, kind(member|guest), role(owner|cohost|participant),
-                                          status(active|blocked), pid, joinCode? | inviteCode?, joinedAt
-  invites/{guestCode}                     name, color, pid, claimedBy, createdBy, createdAt
+                                          status(active|blocked), pid, joinCode? | inviteCode?, joinedAt, meetId?
+  invites/{guestCode}                     name, color, pid, claimedBy, createdBy, createdAt, meetId?
   meetups/{meetId}                        title, status(open|done), result{date, placeId, placeTitle, placeUrl, via}, drawCount{date, place}, createdBy, createdAt
-    avail/{pid}                           dates "YYYY-MM-DD,…", voteDates "…", votePlaces[], hidden, updatedAt
+    avail/{pid}                           dates "YYYY-MM-DD,…", voteDates "…", votePlaces[], hidden, updatedAt, name?, color?
     places/{placeId}                      title, mapsUrl, gPlaceId, address, note, pid, createdAt
     draws/{drawId}                        kind(date|place), candidates[], result, n(1–3), pid, at   ← สร้างได้อย่างเดียว
 ```
 
 - **pid** = ตัวตนของคนในห้องที่ไม่เปลี่ยนตามเครื่อง: member ใช้ uid, guest ใช้ `pid` ที่ gen ตอนสร้าง invite
 - **color** = เลข 0–11 ชี้ไปที่ชุดสีประจำตัวใน design system (`docs/design-system.md`) ไม่เก็บ hex สีใน `users` เป็นแค่ค่าเริ่มต้น สีจริงของแต่ละห้องอยู่ใน `members` ถ้าตอนเข้าห้องมีคนใช้สีนี้แล้ว แอปเลือกสีที่ว่างให้ (member เปลี่ยนเองได้ในหน้าสมาชิก, สีของ guest เจ้าของห้องเลือกตอนสร้าง invite)
+- **meetId** (members, invites) = แขกเฉพาะนัดนั้น เห็นและแก้ได้แค่นัดนั้น และนับรวมแค่ในนัดนั้น ไม่มี field นี้ = อยู่ในแก๊ง (ทุกนัด) host เป็นคนตั้ง ตอน guest กดลิงก์เชิญ ค่านี้ถูกคัดลอกจาก invite
+- **name/color ใน avail** มีเฉพาะข้อมูลที่ admin ดึงมาจาก v1 ใช้แสดงคนที่ยังไม่กดลิงก์เชิญ พอเจ้าตัวบันทึกเองใน v2 สอง field นี้จะหายไป และการดึงซ้ำจะไม่ทับอีก
+- **นัด `v1`** = นัดแรกที่ดึงมาจาก v1 สถานที่ใช้ id `v1_<id เดิม>` (ดู `docs/decisions/0001-first-meetup-into-v2.md`)
 - **hidden** อยู่ใน `avail` เพราะ "ซ่อน" มีผลเฉพาะนัดนั้น
 - **เตะออก** = ลบ `members/{uid}`; **บล็อก** = `status: blocked` (เก็บไว้กันกลับเข้า)
 - **สรุปนัด** = `meetups.status = done` + `result`; นัดที่ done อ่านได้ แก้ avail/places ไม่ได้

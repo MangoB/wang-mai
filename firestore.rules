@@ -75,6 +75,13 @@ service cloud.firestore {
         && member(roomId).status == 'active'
         && (member(roomId).kind == 'member' || inviteClaimedBy(roomId, member(roomId).inviteCode) == uid());
     }
+    // A meetup-only guest (members.meetId set) sees and edits that one meetup only.
+    function scopeOk(roomId, meetId) {
+      return member(roomId).get('meetId', null) == null || member(roomId).get('meetId', null) == meetId;
+    }
+    function meetScope(d) {
+      return d.get('meetId', null) == null || str(d.get('meetId', null), 1, 40);
+    }
     function isHost(roomId) { return isMember(roomId) && member(roomId).role in ['owner', 'cohost']; }
     function isOwner(roomId) { return isMember(roomId) && member(roomId).role == 'owner'; }
 
@@ -151,7 +158,7 @@ service cloud.firestore {
 
         // Guest claims an invite in the same batch that sets invites/{code}.claimedBy = uid.
         allow create: if signedIn() && mid == uid()
-          && request.resource.data.keys().hasOnly(['name', 'color', 'kind', 'role', 'status', 'pid', 'inviteCode', 'joinedAt'])
+          && request.resource.data.keys().hasOnly(['name', 'color', 'kind', 'role', 'status', 'pid', 'inviteCode', 'joinedAt', 'meetId'])
           && request.resource.data.kind == 'guest'
           && request.resource.data.role == 'participant'
           && request.resource.data.status == 'active'
@@ -159,7 +166,8 @@ service cloud.firestore {
           && getAfter(docPath('rooms/' + roomId + '/invites/' + request.resource.data.inviteCode)).data.claimedBy == uid()
           && request.resource.data.pid == get(docPath('rooms/' + roomId + '/invites/' + request.resource.data.inviteCode)).data.pid
           && request.resource.data.name == get(docPath('rooms/' + roomId + '/invites/' + request.resource.data.inviteCode)).data.name
-          && request.resource.data.color == get(docPath('rooms/' + roomId + '/invites/' + request.resource.data.inviteCode)).data.color;
+          && request.resource.data.color == get(docPath('rooms/' + roomId + '/invites/' + request.resource.data.inviteCode)).data.color
+          && request.resource.data.get('meetId', null) == get(docPath('rooms/' + roomId + '/invites/' + request.resource.data.inviteCode)).data.get('meetId', null);
 
         // Self: members change their own name and color.
         allow update: if mid == uid() && isMember(roomId)
@@ -167,12 +175,15 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'color'])
           && str(request.resource.data.name, 1, 30) && personColor(request.resource.data.color);
 
-        // Hosts: block/unblock; the owner also promotes/demotes co-hosts. The owner's own doc is untouchable.
+        // Hosts: block/unblock and make someone a guest of one meetup; the owner also promotes/demotes co-hosts.
+        // The owner's own doc is untouchable. A meetup-only guest is always a participant.
         allow update: if isHost(roomId) && resource.data.role != 'owner'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'role'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'role', 'meetId'])
           && request.resource.data.status in ['active', 'blocked']
           && request.resource.data.role in ['participant', 'cohost']
-          && (request.resource.data.role == resource.data.role || isOwner(roomId));
+          && (request.resource.data.role == resource.data.role || isOwner(roomId))
+          && meetScope(request.resource.data)
+          && (request.resource.data.get('meetId', null) == null || request.resource.data.role == 'participant');
 
         // Leave (self) or remove (host). Blocked members are kept so they cannot rejoin.
         allow delete: if resource.data.role != 'owner' && (mid == uid() || isHost(roomId));
@@ -183,7 +194,8 @@ service cloud.firestore {
         allow get: if signedIn();
         allow list: if isHost(roomId);
         allow create: if isHost(roomId) && code8(c)
-          && request.resource.data.keys().hasOnly(['name', 'color', 'pid', 'claimedBy', 'createdBy', 'createdAt'])
+          && request.resource.data.keys().hasOnly(['name', 'color', 'pid', 'claimedBy', 'createdBy', 'createdAt', 'meetId'])
+          && meetScope(request.resource.data)
           && str(request.resource.data.name, 1, 30) && personColor(request.resource.data.color)
           && str(request.resource.data.pid, 20, 40)
           && request.resource.data.claimedBy == null
@@ -193,6 +205,9 @@ service cloud.firestore {
         allow update: if signedIn()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedBy'])
           && request.resource.data.claimedBy == uid();
+        allow update: if isHost(roomId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['meetId'])
+          && meetScope(request.resource.data);
         allow delete: if isHost(roomId);
       }
 
@@ -200,13 +215,14 @@ service cloud.firestore {
       match /meetups/{meetId} {
         function meetupData() { return get(docPath('rooms/' + roomId + '/meetups/' + meetId)).data; }
         function isOpen() { return meetupData().status == 'open'; }
+        function canSee() { return isMember(roomId) && scopeOk(roomId, meetId); }
         function drawBump(next, prev) {
           return next == prev
             || (next.date == prev.date + 1 && next.place == prev.place && next.date <= 3)
             || (next.place == prev.place + 1 && next.date == prev.date && next.place <= 3);
         }
 
-        allow read: if isMember(roomId) || isAdmin();
+        allow read: if canSee() || isAdmin();
         allow create: if isHost(roomId)
           && request.resource.data.keys().hasOnly(['title', 'status', 'result', 'drawCount', 'createdBy', 'createdAt'])
           && str(request.resource.data.title, 1, 60)
@@ -225,8 +241,8 @@ service cloud.firestore {
 
         // Availability and votes: one doc per person, keyed by pid (survives a guest's device change).
         match /avail/{pid} {
-          allow read: if isMember(roomId) || isAdmin();
-          allow create, update: if isMember(roomId) && member(roomId).pid == pid && isOpen()
+          allow read: if canSee() || isAdmin();
+          allow create, update: if canSee() && member(roomId).pid == pid && isOpen()
             && request.resource.data.keys().hasOnly(['dates', 'voteDates', 'votePlaces', 'hidden', 'updatedAt'])
             && dateList(request.resource.data.dates)
             && dateList(request.resource.data.voteDates)
@@ -237,12 +253,22 @@ service cloud.firestore {
           allow update: if isHost(roomId)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hidden'])
             && request.resource.data.hidden is bool;
+          // Site admin imports someone's v1 entry (docs/decisions/0001). name/color show the person until they join.
+          allow create, update: if isAdmin() && isOpen()
+            && request.resource.data.keys().hasOnly(['dates', 'voteDates', 'votePlaces', 'hidden', 'updatedAt', 'name', 'color'])
+            && dateList(request.resource.data.dates)
+            && dateList(request.resource.data.voteDates)
+            && isList(request.resource.data.votePlaces, 100)
+            && request.resource.data.hidden == false
+            && str(request.resource.data.name, 1, 30) && personColor(request.resource.data.color)
+            && request.resource.data.updatedAt == request.time
+            && (resource == null || 'name' in resource.data);
           allow delete: if isHost(roomId);
         }
 
         match /places/{placeId} {
-          allow read: if isMember(roomId) || isAdmin();
-          allow create: if isMember(roomId) && isOpen()
+          allow read: if canSee() || isAdmin();
+          allow create: if canSee() && isOpen()
             && request.resource.data.keys().hasOnly(['title', 'mapsUrl', 'gPlaceId', 'address', 'note', 'pid', 'createdAt'])
             && str(request.resource.data.title, 1, 80)
             && str(request.resource.data.mapsUrl, 0, 500)
@@ -252,13 +278,25 @@ service cloud.firestore {
             && str(request.resource.data.note, 0, 300)
             && request.resource.data.pid == member(roomId).pid
             && request.resource.data.createdAt == request.time;
+          // Site admin imports v1 places; their ids start with v1_.
+          allow create: if isAdmin() && isOpen() && placeId.matches('^v1_.+')
+            && request.resource.data.keys().hasOnly(['title', 'mapsUrl', 'gPlaceId', 'address', 'note', 'pid', 'createdAt'])
+            && str(request.resource.data.title, 1, 80)
+            && str(request.resource.data.mapsUrl, 0, 500)
+            && (request.resource.data.mapsUrl == '' || request.resource.data.mapsUrl.matches('^https://.+'))
+            && str(request.resource.data.gPlaceId, 0, 300)
+            && str(request.resource.data.address, 0, 200)
+            && str(request.resource.data.note, 0, 300)
+            && str(request.resource.data.pid, 1, 40)
+            && request.resource.data.createdAt is timestamp;
           allow update: if false;
-          allow delete: if isMember(roomId) && (resource.data.pid == member(roomId).pid || isHost(roomId));
+          allow delete: if (canSee() && (resource.data.pid == member(roomId).pid || isHost(roomId)))
+            || (isAdmin() && placeId.matches('^v1_.+'));
         }
 
         // Random draws: append-only evidence; the same batch bumps meetup.drawCount.<kind> by 1 (max 3).
         match /draws/{drawId} {
-          allow read: if isMember(roomId) || isAdmin();
+          allow read: if canSee() || isAdmin();
           allow create: if isHost(roomId) && isOpen()
             && request.resource.data.keys().hasOnly(['kind', 'candidates', 'result', 'n', 'pid', 'at'])
             && request.resource.data.kind in ['date', 'place']

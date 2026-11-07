@@ -1,6 +1,6 @@
 import { ref, reactive, computed, watch } from 'vue';
 import {
-  room, meetup, openMeetup, isHost, isOpen, saveState, topDates, placesRanked, goldDates, people, meetPeople,
+  room, meetup, openMeetup, isHost, isOpen, saveState, topDates, placesRanked, goldDates, people, meetPeople, meetRoster,
   concludeMeetup, reopenMeetup, setHidden, say, explain,
 } from '../store.js';
 import { fmtLong, parseKey, MSHORT, WD_LONG } from '../../../src/lib/dates.js';
@@ -52,7 +52,7 @@ export default {
 
     return {
       room, meetup, isHost, isOpen, saveState, tab, sheet, openConclude, confirmConclude, reopen, topDates, placesRanked, fmtLong,
-      people, meetPeople, hiddenPids, hasEntry, toggleHidden, chipStyle, result, resultDay, entered,
+      people, meetPeople, meetRoster, hiddenPids, hasEntry, toggleHidden, chipStyle, result, resultDay, entered,
     };
   },
   template: /* html */ `
@@ -109,10 +109,12 @@ export default {
         <aside class="sheet">
           <h2>ใครอยู่ในนัดนี้</h2>
           <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
-            <li v-for="p in people" :key="p.pid" class="row between">
-              <span class="row" :style="hiddenPids.has(p.pid) ? 'opacity: .45' : ''">
+            <li v-for="p in meetRoster" :key="p.pid" class="row between">
+              <span class="row" :style="hiddenPids.has(p.pid) || p.waiting ? 'opacity: .5' : ''">
                 <span class="chip" :style="chipStyle(p.color)">{{ p.name.charAt(0) }}</span>
                 <span :style="hiddenPids.has(p.pid) ? 'text-decoration: line-through' : ''">{{ p.name }}</span>
+                <span v-if="p.meetId" class="tag">แขก</span>
+                <span v-if="p.waiting" class="small muted">ยังไม่กดลิงก์เชิญ</span>
               </span>
               <button v-if="isHost && isOpen && hasEntry(p.pid)" class="btn sm ghost" @click="toggleHidden(p)">
                 {{ hiddenPids.has(p.pid) ? 'นับรวม' : 'ไม่นับนัดนี้' }}
